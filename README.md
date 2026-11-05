@@ -12,7 +12,7 @@ Aplicación web para la operación de Distribuidora Río Claro. Incluye landing 
 - **Datos:** Azure SQL Database; datos de demostración en memoria solo en desarrollo.
 - **Documentos:** Azure AI Document Intelligence (modelo `prebuilt-invoice`) y Azure Blob Storage.
 - **Asistente:** Azure AI Search + Azure OpenAI, respuestas limitadas al contexto recuperado y fuentes devueltas.
-- **Despliegue:** Docker o Azure App Service Linux con Node 20.
+- **Despliegue:** Docker o Azure App Service Linux con Node 24.
 
 ```text
 Browser ── same-origin ──> Express ──> Entra ID
@@ -52,7 +52,7 @@ Los endpoints de negocio requieren autenticación y rol. Las rutas de facturas r
 
 ## Ejecución local
 
-Requisitos: Node.js 20 o superior.
+Requisitos: Node.js 24 o superior.
 
 1. Instala dependencias y crea la configuración local:
 

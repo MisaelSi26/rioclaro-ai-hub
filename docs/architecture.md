@@ -67,7 +67,7 @@ Las mismas restricciones se aplican en React para la experiencia y en Express co
 
 ## Producción
 
-- Node 20 o contenedor Docker en App Service Linux.
+- Node 24 o contenedor Docker en App Service Linux.
 - Secretos y cadenas en Key Vault/App Settings; nunca en el bundle.
 - `NODE_ENV=production` exige `SESSION_KEYS` y una conexión SQL, y deshabilita el login demo.
 - Definir private networking/firewall, telemetría, copias, retención y alertas según el ambiente.

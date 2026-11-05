@@ -2,15 +2,15 @@
 
 ## Alcance
 
-La app sirve el build React y la API Express desde el mismo origen, simplificando cookies de sesión y rutas SPA. El despliegue no crea recursos automáticamente: primero hay que provisionar Azure SQL, Storage, servicios de IA, App Service y una app de Entra en la suscripción del operador.
+La app sirve el build React y la API Express desde el mismo origen, simplificando cookies de sesión y rutas SPA. El runtime de producción es Node 24 (por compatibilidad con los SDK de Azure del lockfile). El despliegue no crea recursos automáticamente: primero hay que provisionar Azure SQL, Storage, servicios de IA, App Service y una app de Entra en la suscripción del operador.
 
-## 1. Crear App Service Node 20
+## 1. Crear App Service Node 24
 
 ```bash
 az login
 az group create --name rg-rioclaro-ai --location eastus
 az appservice plan create --name asp-rioclaro-ai --resource-group rg-rioclaro-ai --is-linux --sku B1
-az webapp create --name <nombre-global-unico> --resource-group rg-rioclaro-ai --plan asp-rioclaro-ai --runtime "NODE:20-lts"
+az webapp create --name <nombre-global-unico> --resource-group rg-rioclaro-ai --plan asp-rioclaro-ai --runtime "NODE:24-lts"
 az webapp config set --name <nombre-global-unico> --resource-group rg-rioclaro-ai --startup-file "npm start"
 ```
 
@@ -84,7 +84,7 @@ En el repositorio agrega los GitHub Actions secrets:
 - `AZURE_WEBAPP_NAME`: nombre del App Service.
 - `AZURE_WEBAPP_PUBLISH_PROFILE`: contenido descargado desde **App Service > Get publish profile**.
 
-El workflow `.github/workflows/azure-webapp.yml` publica cada push a `main`. Protege la rama y exige pruebas/revisión antes de merge. La configuración de Azure permanece fuera del workflow y del repositorio.
+Los dos secretos deben estar definidos en el repositorio exacto `MisaelSi26/rioclaro-ai-hub` (no solo como variables de entorno locales). El workflow valida que ambos existan antes de construir; si falta el XML publish profile, el error identifica el secreto ausente en lugar de fallar en el paso de despliegue. El workflow `.github/workflows/azure-webapp.yml` publica cada push a `main`. Protege la rama y exige pruebas/revisión antes de merge. La configuración de Azure permanece fuera del workflow y del repositorio.
 
 ## 8. Alternativa Docker
 
@@ -102,4 +102,3 @@ No uses `.env` con secretos en una imagen o repositorio. Para App Service con co
 - Verificar subida OCR, almacenamiento privado y duplicados con documentos de prueba no sensibles.
 - Probar consultas RAG con fuentes válidas y con ausencia de evidencia.
 - Activar Application Insights, Azure Monitor, alertas, copias de seguridad y revisiones periódicas de costo.
-

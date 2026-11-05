@@ -16,10 +16,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate Azure deployment secrets
+        env:
+          AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+          AZURE_WEBAPP_PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        run: |
+          if [ -z "$AZURE_WEBAPP_NAME" ]; then
+            echo "::error::Missing repository Actions secret AZURE_WEBAPP_NAME."
+            exit 1
+          fi
+          if [ -z "$AZURE_WEBAPP_PUBLISH_PROFILE" ]; then
+            echo "::error::Missing repository Actions secret AZURE_WEBAPP_PUBLISH_PROFILE. Add the App Service publish profile XML."
+            exit 1
+          fi
+          if ! printf '%s' "$AZURE_WEBAPP_PUBLISH_PROFILE" | grep -q '<publishData'; then
+            echo "::error::AZURE_WEBAPP_PUBLISH_PROFILE does not look like an App Service publish profile XML."
+            exit 1
+          fi
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install and build
