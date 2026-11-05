@@ -1,0 +1,14 @@
+services:
+  rio-claro-ai-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DEV_AUTH_ENABLED: "false"
+    restart: unless-stopped

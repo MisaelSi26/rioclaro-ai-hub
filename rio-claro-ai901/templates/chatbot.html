@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Asistente empresarial | Río Claro{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <p class="eyebrow">Módulo 02</p>
+  <h1>Asistente empresarial</h1>
+  <p class="text-secondary">Pregunta sobre productos, inventario, políticas, procedimientos o preguntas frecuentes.</p>
+</div>
+<section class="content-card mb-4">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="question" class="form-label fw-semibold">¿Qué necesitas saber?</label>
+    <textarea class="form-control" id="question" name="question" rows="3" maxlength="2000"
+              placeholder="Escribe una pregunta basada en los documentos de Río Claro..."
+              required>{{ question or "" }}</textarea>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 gap-2">
+      <span class="form-text">La respuesta incluirá las fuentes recuperadas; verifica la información antes de actuar.</span>
+      <button class="btn btn-primary" type="submit">Consultar documentos</button>
+    </div>
+  </form>
+</section>
+{% if response %}
+<section class="content-card" aria-labelledby="answer-title" aria-live="polite">
+  <p class="eyebrow">Respuesta basada en documentos</p>
+  <h2 id="answer-title" class="h4">Resultado</h2>
+  <p class="answer-text">{{ response.answer }}</p>
+  {% if response.sources %}
+    <h3 class="h6 mt-4">Fuentes consultadas</h3>
+    <ul class="source-list">
+      {% for source in response.sources %}
+        <li><span class="fw-semibold">{{ source.title }}</span><br><span class="small text-secondary">{{ source.source }}</span></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="small text-secondary mb-0">No se recuperaron fuentes para esta consulta.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

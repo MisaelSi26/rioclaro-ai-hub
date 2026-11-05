@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Generated invoice documents and results
+uploads/*
+!uploads/.gitkeep
+!uploads/processed/
+uploads/processed/*
+!uploads/processed/.gitkeep
+
+# Test/build output
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# VS Code
+.vscode/

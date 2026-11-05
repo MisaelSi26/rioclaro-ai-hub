@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Inicio | Río Claro AI-901{% endblock %}
+{% block content %}
+<section class="hero rounded-4 p-4 p-lg-5 mb-5">
+  <div class="row align-items-center g-4">
+    <div class="col-lg-8">
+      <p class="eyebrow mb-2">Proyecto Integrador AI-901</p>
+      <h1 class="display-5 fw-bold">IA útil, responsable y basada en información empresarial.</h1>
+      <p class="lead mt-3 mb-4">Río Claro agiliza el procesamiento de facturas y facilita el acceso a conocimiento interno con servicios de Azure AI.</p>
+      <a class="btn btn-light btn-lg me-2 mb-2" href="{{ url_for('facturas') }}">Procesar factura</a>
+      <a class="btn btn-outline-light btn-lg mb-2" href="{{ url_for('chatbot') }}">Consultar al asistente</a>
+    </div>
+    <div class="col-lg-4">
+      <div class="hero-stat">
+        <span class="stat-number">3</span>
+        <span>servicios de Azure AI conectados mediante una aplicación Flask modular</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="capabilities-title">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-3">
+    <div>
+      <p class="eyebrow">Plataforma</p>
+      <h2 id="capabilities-title" class="h2">Capacidades principales</h2>
+    </div>
+    <a class="text-link mb-2" href="{{ url_for('about') }}">Conoce el enfoque responsable →</a>
+  </div>
+  <div class="row g-4">
+    <div class="col-md-6">
+      <article class="feature-card h-100">
+        <div class="feature-icon" aria-hidden="true">01</div>
+        <h3 class="h4">Procesamiento de facturas</h3>
+        <p>Extrae datos clave con Azure AI Document Intelligence y muestra confianza por campo para facilitar su revisión.</p>
+        <a href="{{ url_for('facturas') }}">Ir al módulo de facturas</a>
+      </article>
+    </div>
+    <div class="col-md-6">
+      <article class="feature-card h-100">
+        <div class="feature-icon" aria-hidden="true">02</div>
+        <h3 class="h4">Asistente empresarial</h3>
+        <p>Combina Azure AI Search y Azure OpenAI para responder usando documentos recuperados y mostrar sus fuentes.</p>
+        <a href="{{ url_for('chatbot') }}">Ir al asistente</a>
+      </article>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Acerca del proyecto | Río Claro{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <p class="eyebrow">Proyecto Integrador AI-901</p>
+  <h1>Acerca de Río Claro AI</h1>
+  <p class="text-secondary">Una demostración modular de IA empresarial con servicios de Azure y supervisión humana.</p>
+</div>
+<section class="content-card mb-4">
+  <h2 class="h3">IA Responsable en la práctica</h2>
+  <p>El proyecto considera los seis principios de IA Responsable de Microsoft. Las medidas descritas son controles de diseño; la organización debe validarlas y operarlas antes de un uso productivo.</p>
+  <div class="row g-3">
+    <div class="col-md-6"><article class="principle-card"><h3>Equidad</h3><p>Los flujos no toman decisiones sobre elegibilidad o trato a personas. Se deben probar las extracciones con facturas variadas y revisar diferencias de desempeño por tipo de documento.</p></article></div>
+    <div class="col-md-6"><article class="principle-card"><h3>Inclusión</h3><p>La interfaz es adaptable a móviles, usa etiquetas y controles accesibles, y presenta textos en español. Se recomienda probarla con usuarios y tecnologías de asistencia.</p></article></div>
+    <div class="col-md-6"><article class="principle-card"><h3>Confiabilidad y seguridad</h3><p>Se validan extensión y firma del archivo, se limita su tamaño y se gestionan errores. Los niveles de confianza bajos se señalan para revisión humana; deben añadirse monitoreo y pruebas de resiliencia operativa.</p></article></div>
+    <div class="col-md-6"><article class="principle-card"><h3>Privacidad</h3><p>Las credenciales se obtienen del entorno, no del código. En producción, usa Key Vault/identidades administradas, acceso mínimo y políticas definidas de retención y eliminación de documentos.</p></article></div>
+    <div class="col-md-6"><article class="principle-card"><h3>Transparencia</h3><p>El chatbot muestra fuentes recuperadas y declara cuando no hay información suficiente. El procesamiento de documentos muestra confianza por campo y advierte sobre resultados inciertos.</p></article></div>
+    <div class="col-md-6"><article class="principle-card"><h3>Rendición de cuentas</h3><p>Las personas deben validar resultados antes de usarlos. Se recomienda asignar responsables del índice y de los datos, auditar cambios y mantener un proceso de reporte y corrección.</p></article></div>
+  </div>
+</section>
+<section class="content-card">
+  <h2 class="h3">Alcance de la demostración</h2>
+  <p class="mb-0">La aplicación no incluye autenticación ni autorización de usuarios. Antes de exponerla públicamente, integra control de acceso, protección y clasificación de datos, límites de consumo, monitoreo y revisión legal/operativa.</p>
+</section>
+{% endblock %}

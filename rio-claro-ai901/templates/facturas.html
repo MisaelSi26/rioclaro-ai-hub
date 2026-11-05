@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Procesamiento de facturas | Río Claro{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <p class="eyebrow">Módulo 01</p>
+  <h1>Procesamiento de facturas</h1>
+  <p class="text-secondary">Carga un PDF, JPG o PNG. Los campos con confianza menor al 80% requieren revisión humana.</p>
+</div>
+<section class="content-card mb-4" aria-labelledby="upload-title">
+  <h2 id="upload-title" class="h4">Cargar documento</h2>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="invoice" class="form-label">Archivo de factura</label>
+    <input class="form-control" type="file" id="invoice" name="invoice"
+           accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+    <div class="form-text">Formatos admitidos: PDF, JPG y PNG. Tamaño máximo: {{ config["MAX_CONTENT_LENGTH"] // (1024 * 1024) }} MB.</div>
+    <div id="file-preview" class="small text-secondary mt-2" aria-live="polite"></div>
+    <button class="btn btn-primary mt-3" type="submit">Analizar factura</button>
+  </form>
+</section>
+
+{% if result %}
+<section class="content-card" aria-labelledby="results-title">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+      <p class="eyebrow mb-1">Resultado guardado</p>
+      <h2 id="results-title" class="h4">Datos extraídos</h2>
+      <p class="small text-secondary mb-0">{{ result.filename }}</p>
+    </div>
+    <span class="badge rounded-pill text-bg-success">Análisis completado</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th scope="col">Campo</th><th scope="col">Valor</th><th scope="col">Confianza</th><th scope="col">Estado</th></tr></thead>
+      <tbody>
+      {% for field in result.fields %}
+        <tr>
+          <th scope="row">{{ field.label }}</th>
+          <td>{{ field.value or "No detectado" }}</td>
+          <td>{% if field.confidence is not none %}{{ "%.0f"|format(field.confidence * 100) }}%{% else %}No disponible{% endif %}</td>
+          <td>
+            {% if field.low_confidence %}
+              <span class="badge text-bg-warning">Revisar: menor a 80%</span>
+            {% elif field.confidence is not none %}
+              <span class="badge text-bg-success">Confianza aceptable</span>
+            {% else %}
+              <span class="badge text-bg-secondary">Sin puntuación</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="small text-secondary mb-0">Identificador: {{ result.id }} · Resultado: {{ result.result_location }}</p>
+</section>
+{% endif %}
+{% endblock %}
