@@ -156,6 +156,7 @@ function HubApp({ user, onLogout }) {
   const canAccessModule = isLanding || moduleRoleAccess[activeTab]?.some((role) => user.roles.includes(role));
   const canCreateTickets = user.roles.some((role) => ['Administrador', 'Ventas'].includes(role));
   const currentInvoice = activeTab === 'facturas' && Array.isArray(apiData) ? apiData[0] : null;
+  const dashboardData = activeTab === 'dashboard' && !Array.isArray(apiData) ? apiData : null;
   const visibleTabs = isLanding
     ? moduleTabs
     : moduleTabs.filter(({ id }) => moduleRoleAccess[id]?.some((role) => user.roles.includes(role)));
@@ -851,25 +852,25 @@ function HubApp({ user, onLogout }) {
                   <div className="kpi-grid">
                     <div className="kpi-box">
                       <span>Ventas Totales</span>
-                      <strong>{apiData ? `$${(apiData.salesTotal / 1000000).toFixed(1)}M` : '—'}</strong>
+                      <strong>{dashboardData ? `$${(dashboardData.salesTotal / 1000000).toFixed(1)}M` : '—'}</strong>
                     </div>
                     <div className="kpi-box">
                       <span>Ventas por sucursal</span>
-                      <strong>{apiData ? `${apiData.salesByBranch.length} sucursales` : '—'}</strong>
+                      <strong>{dashboardData ? `${dashboardData.salesByBranch.length} sucursales` : '—'}</strong>
                     </div>
                     <div className="kpi-box">
                       <span>Facturas Procesadas</span>
-                      <strong>{apiData?.invoicesProcessed ?? '—'}</strong>
+                      <strong>{dashboardData?.invoicesProcessed ?? '—'}</strong>
                     </div>
                     <div className="kpi-box">
                       <span>Duplicadas Detectadas</span>
-                      <strong>{apiData?.duplicatesDetected ?? '—'}</strong>
+                      <strong>{dashboardData?.duplicatesDetected ?? '—'}</strong>
                     </div>
                   </div>
 
                   <div className="chart-card compact-chart">
                     <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={apiData?.monthlySales?.map((row) => ({ mes: row.month, ventas: row.sales })) || []}>
+                      <BarChart data={dashboardData?.monthlySales?.map((row) => ({ mes: row.month, ventas: row.sales })) || []}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
                         <XAxis dataKey="mes" stroke="#64748B" />
                         <YAxis stroke="#64748B" />
