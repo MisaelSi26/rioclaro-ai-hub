@@ -356,12 +356,17 @@ function HubApp({ user, onLogout }) {
               Automatización de facturas, inventarios inteligentes y atención inmediata para clientes y colaboradores.
             </p>
             <div className="hero-actions">
-              <Link to="/login" className="primary-button">
-                Ingresar al Sistema
-              </Link>
-              <Link to="/demo" className="secondary-button">
+              <Link to="/demo" className="primary-button">
                 Explorar demo interactiva
               </Link>
+              <Link to="/login" className="secondary-button">
+                Ingresar al sistema
+              </Link>
+            </div>
+            <div className="hero-assurance" aria-label="Detalles de la demostración">
+              <span>Sin iniciar sesión</span>
+              <span>Datos ficticios</span>
+              <span>Recorrido interactivo</span>
             </div>
             <div className="stat-row">
               {metrics.map((item) => (
@@ -372,7 +377,7 @@ function HubApp({ user, onLogout }) {
                 </div>
               ))}
             </div>
-            <p className="demo-data-note">Indicadores ilustrativos; los datos operativos solo se muestran tras iniciar sesión.</p>
+            <p className="demo-data-note">Los indicadores son ilustrativos; la demo no consulta ni modifica información productiva.</p>
           </div>
 
           <div className="hero-visual" aria-label="Productos de limpieza e higiene">
