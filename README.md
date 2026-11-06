@@ -28,6 +28,12 @@ Browser ── same-origin ──> Express ──> Entra ID
 |---|---|---|
 | `/` | Landing pública | Público |
 | `/login` | Inicio de sesión | Público |
+| `/demo` | Dashboard del recorrido interactivo | Público, datos ficticios |
+| `/demo/facturas` | Simulación de OCR y detección de duplicados | Público, datos ficticios |
+| `/demo/inventario` | Búsqueda homologada por producto y sucursal | Público, datos ficticios |
+| `/demo/chat` | Asistente con respuestas y fuentes de ejemplo | Público, datos ficticios |
+| `/demo/voz` | Interacción de voz simulada | Público, datos ficticios |
+| `/demo/clientes` | CRM con tickets locales a la sesión | Público, datos ficticios |
 | `/facturas` | Captura OCR y revisión de duplicados | Administrador, Compras, Finanzas |
 | `/inventario` | Catálogo e inventario por sucursal | Administrador, Dirección, Compras, Bodega |
 | `/chat` | Asistente con búsqueda documental | Administrador, Dirección, Compras, Ventas, Bodega |
@@ -36,6 +42,10 @@ Browser ── same-origin ──> Express ──> Entra ID
 | `/dashboard` | Indicadores ejecutivos | Administrador, Dirección, Finanzas |
 
 El backend verifica los roles en cada API; ocultar o abrir una ruta en el navegador no concede acceso.
+
+### Modo demostración
+
+Abre `/demo` desde la landing o directamente para recorrer todos los módulos sin iniciar sesión. El dashboard, OCR, inventario, asistente, voz y CRM usan datos ficticios y estado local del navegador: no llaman a las APIs de negocio, no escriben en SQL ni suben documentos. En OCR, el archivo seleccionado se usa solo para ilustrar el flujo y no se transmite ni conserva. La lectura en voz alta, si el navegador la soporta, usa la síntesis local; no es una conexión con Azure Speech. La demo no debe usarse como fuente de datos operativos.
 
 ## API
 
