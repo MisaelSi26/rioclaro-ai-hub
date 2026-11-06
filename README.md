@@ -52,7 +52,7 @@ Abre `/demo` desde la landing o directamente para recorrer todos los módulos si
 - `GET /api/health` — salud del servicio y base de datos.
 - `GET /api/auth/config`, `GET /api/auth/me` — configuración no sensible y sesión actual.
 - `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout` — ciclo de sesión Entra.
-- `GET /api/invoices`, `POST /api/invoices` — consulta y análisis OCR de facturas.
+- `GET /api/invoices`, `POST /api/invoices`, `DELETE /api/invoices/latest` — consulta, análisis OCR y eliminación de la última factura junto con su documento almacenado.
 - `GET /api/inventory` — existencia por sucursal.
 - `GET /api/tickets`, `POST /api/tickets` — tickets CRM.
 - `GET /api/dashboard` — KPI por sucursal.

@@ -157,7 +157,7 @@ function createUser(claims, fallbackRole) {
 
 async function getInvoices() {
   const pool = await getSqlPool();
-  if (!pool) return demoData.invoices;
+  if (!pool) return [...demoData.invoices].sort((left, right) => Number(right.id) - Number(left.id));
   const result = await pool.request().query(`
     SELECT f.id, f.rfc, COALESCE(p.nombre, f.proveedor_nombre) AS supplier, f.fecha AS [date], f.folio,
       f.subtotal, f.iva AS tax, f.total, f.confianza_ocr AS confidence, f.estado AS status,
@@ -472,6 +472,53 @@ app.get('/api/dashboard', requireRoles('Administrador', 'Dirección', 'Finanzas'
 app.get('/api/invoices', requireRoles('Administrador', 'Compras', 'Finanzas'), async (_req, res, next) => {
   try {
     res.json(await getInvoices());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/invoices/latest', requireRoles('Administrador', 'Compras', 'Finanzas'), async (_req, res, next) => {
+  try {
+    const pool = await getSqlPool();
+    let deletedInvoice;
+    if (pool) {
+      const result = await pool.request().query(`
+        WITH latest AS (SELECT TOP (1) id FROM facturas ORDER BY id DESC)
+        DELETE FROM facturas
+        OUTPUT DELETED.id, DELETED.documento_url AS documentName
+        WHERE id = (SELECT id FROM latest)
+      `);
+      deletedInvoice = result.recordset[0];
+    } else {
+      const latestIndex = demoData.invoices.reduce(
+        (latest, invoice, index, invoices) => (invoice.id > invoices[latest].id ? index : latest),
+        0,
+      );
+      deletedInvoice = demoData.invoices.splice(latestIndex, 1)[0];
+    }
+
+    if (!deletedInvoice) {
+      res.status(404).json({ error: 'No hay facturas para eliminar.' });
+      return;
+    }
+
+    let warning;
+    if (deletedInvoice.documentName) {
+      try {
+        const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+        const containerName = process.env.AZURE_STORAGE_CONTAINER;
+        if (!connectionString || !containerName) {
+          throw new Error('Azure Blob Storage no está configurado.');
+        }
+        const container = BlobServiceClient.fromConnectionString(connectionString).getContainerClient(containerName);
+        await container.getBlockBlobClient(deletedInvoice.documentName).deleteIfExists();
+      } catch (error) {
+        console.error('Invoice record deleted but Blob cleanup failed:', error.message);
+        warning = 'La factura se eliminó de la base de datos, pero no se pudo eliminar su documento original de Blob Storage.';
+      }
+    }
+
+    res.json({ deletedInvoice: { id: deletedInvoice.id }, ...(warning ? { warning } : {}) });
   } catch (error) {
     next(error);
   }

@@ -188,6 +188,12 @@ img {
   font-size: 0.9rem;
 }
 
+.invoice-delete-button {
+  margin-top: 12px;
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.3);
+}
+
 .page-shell {
   padding: 30px 38px 28px;
 }
