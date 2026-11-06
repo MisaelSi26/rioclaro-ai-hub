@@ -185,6 +185,85 @@ async function getInventory() {
   return result.recordset;
 }
 
+function normalizeInventoryText(value) {
+  return String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
+function isInventoryQuestion(question) {
+  return /\b(inventario|existencias?|stock|disponibilidad|cloro|detergente|desinfectante|sanitizante|unidades|sku)\b/
+    .test(normalizeInventoryText(question));
+}
+
+function getInventoryQuestionAnswer(question, inventory) {
+  const normalizedQuestion = normalizeInventoryText(question);
+  if (!isInventoryQuestion(question)) return null;
+
+  const branchNames = [...new Set(inventory.map((row) => row.branch))];
+  const normalizedBranches = branchNames
+    .map((branch) => ({ name: branch, normalized: normalizeInventoryText(branch) }))
+    .filter(({ normalized }) => normalizedQuestion.includes(normalized));
+  const stopWords = new Set([
+    'a', 'actual', 'actuales', 'al', 'algun', 'alguna', 'algunas', 'algunos', 'alrededor', 'al', 'cuanto',
+    'cuanta', 'cuantos', 'cuantas', 'de', 'del', 'disponible', 'disponibles', 'el', 'en', 'es', 'esta',
+    'estan', 'hay', 'la', 'las', 'lo', 'los', 'mas', 'menos', 'mi', 'mis', 'necesito', 'para', 'por',
+    'producto', 'productos', 'que', 'queda', 'quedan', 'stock', 'su', 'sus', 'tenemos', 'tienen', 'un',
+    'una', 'unas', 'uno', 'unos', 'unidad', 'unidades', 'existencia', 'existencias', 'inventario',
+    'sucursal', 'sucursales', 'sku', 'del', 'donde',
+  ]);
+  const codeMatch = normalizedQuestion.match(/\b[a-z]{2,}-\d+\b/);
+  const branchTerms = normalizedBranches.flatMap(({ normalized }) => normalized.split(/\s+/));
+  const productTerms = normalizedQuestion
+    .replace(/\b[a-z]{2,}-\d+\b/g, ' ')
+    .split(/[^a-z0-9]+/)
+    .filter((term) => term.length >= 3 && !stopWords.has(term) && !branchTerms.includes(term));
+  const filteredInventory = inventory.filter((row) => {
+    const productText = normalizeInventoryText(`${row.sku} ${row.name} ${row.category}`);
+    const matchesProduct = codeMatch
+      ? normalizeInventoryText(row.sku).includes(codeMatch[0])
+      : productTerms.every((term) => productText.includes(term));
+    const matchesBranch = normalizedBranches.length === 0
+      || normalizedBranches.some(({ normalized }) => normalizeInventoryText(row.branch) === normalized);
+    return matchesProduct && matchesBranch;
+  });
+
+  if (!filteredInventory.length) {
+    const target = codeMatch?.[0] || productTerms.join(' ');
+    const location = normalizedBranches.length ? ` en ${normalizedBranches.map(({ name }) => name).join(', ')}` : '';
+    return {
+      answer: target
+        ? `No encontré existencias de "${target}"${location} en el inventario actual.`
+        : 'No encontré registros de inventario para esa consulta.',
+      sources: ['Azure SQL · Inventario actual'],
+      model: 'Azure SQL',
+    };
+  }
+
+  const totalStock = filteredInventory.reduce((total, row) => total + Number(row.stock || 0), 0);
+  const stockByBranch = new Map();
+  for (const row of filteredInventory) {
+    stockByBranch.set(row.branch, (stockByBranch.get(row.branch) || 0) + Number(row.stock || 0));
+  }
+  const branchSummary = [...stockByBranch.entries()]
+    .map(([branch, stock]) => `${branch}: ${stock} unidades`)
+    .join('; ');
+  const productSummary = [...new Map(filteredInventory.map((row) => [row.sku, row])).values()]
+    .slice(0, 5)
+    .map((row) => `${row.name} (${row.sku})`)
+    .join('; ');
+  const productCount = new Set(filteredInventory.map((row) => row.sku)).size;
+  const description = codeMatch
+    ? `del producto ${codeMatch[0]}`
+    : productTerms.length
+      ? `de ${productCount} producto${productCount === 1 ? '' : 's'} que coincide${productCount === 1 ? '' : 'n'} con "${productTerms.join(' ')}"`
+      : `de ${productCount} producto${productCount === 1 ? '' : 's'}`;
+
+  return {
+    answer: `El inventario actual tiene ${totalStock} unidades ${description}. ${branchSummary}.${productSummary ? ` Productos: ${productSummary}${productCount > 5 ? '; y otros.' : '.'}` : ''}`,
+    sources: ['Azure SQL · Inventario actual'],
+    model: 'Azure SQL',
+  };
+}
+
 async function getTickets() {
   const pool = await getSqlPool();
   if (!pool) return demoData.tickets;
@@ -597,6 +676,23 @@ app.post('/api/chat', requireRoles('Administrador', 'Dirección', 'Compras', 'Ve
   const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
   if (!question || question.length > 1000) {
     res.status(400).json({ error: 'La consulta debe tener entre 1 y 1000 caracteres.' });
+    return;
+  }
+  if (isInventoryQuestion(question)) {
+    const user = getUser(req);
+    if (!user.roles.some((role) => ['Administrador', 'Dirección', 'Compras', 'Bodega'].includes(role))) {
+      res.json({
+        answer: 'Tu rol no tiene permiso para consultar existencias de inventario.',
+        sources: [],
+        model: 'Control de acceso',
+      });
+      return;
+    }
+    try {
+      res.json(getInventoryQuestionAnswer(question, await getInventory()));
+    } catch (error) {
+      next(error);
+    }
     return;
   }
   const searchEndpoint = process.env.AZURE_SEARCH_ENDPOINT;
