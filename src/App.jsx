@@ -11,6 +11,7 @@ import {
   Lock,
   Mic,
   ShieldCheck,
+  Trash2,
   TrendingUp,
   Users,
   Warehouse,
@@ -133,6 +134,7 @@ function HubApp({ user, onLogout }) {
   const [apiError, setApiError] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
   const [invoiceStatus, setInvoiceStatus] = useState('');
+  const [invoiceDeleting, setInvoiceDeleting] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatQuestion, setChatQuestion] = useState('');
   const [chatStatus, setChatStatus] = useState('');
@@ -238,6 +240,30 @@ function HubApp({ user, onLogout }) {
       event.target.reset();
     } catch (error) {
       setInvoiceStatus(error.message);
+    }
+  }
+
+  async function deleteLatestInvoice() {
+    if (!currentInvoice || invoiceDeleting) return;
+    const confirmed = window.confirm('¿Eliminar la última factura cargada? Esta acción no se puede deshacer.');
+    if (!confirmed) return;
+
+    setInvoiceDeleting(true);
+    setInvoiceStatus('Eliminando la última factura...');
+    try {
+      const response = await fetch('/api/invoices/latest', { method: 'DELETE' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'No se pudo eliminar la factura.');
+      setApiData((previous) => (
+        Array.isArray(previous)
+          ? previous.filter((invoice) => invoice.id !== result.deletedInvoice.id)
+          : previous
+      ));
+      setInvoiceStatus(result.warning || 'Última factura eliminada.');
+    } catch (error) {
+      setInvoiceStatus(error.message);
+    } finally {
+      setInvoiceDeleting(false);
     }
   }
 
@@ -658,6 +684,15 @@ function HubApp({ user, onLogout }) {
                       </tbody>
                     </table>
                   </div>
+                  {currentInvoice && <button
+                    className="secondary-button small-button invoice-delete-button"
+                    type="button"
+                    onClick={deleteLatestInvoice}
+                    disabled={invoiceDeleting}
+                  >
+                    <Trash2 size={16} />
+                    {invoiceDeleting ? 'Eliminando...' : 'Eliminar última factura'}
+                  </button>}
 
                   {Array.isArray(apiData) && apiData.some((invoice) => invoice.duplicate) && <div className="duplicate-alert">
                     <AlertTriangle size={18} />

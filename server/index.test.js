@@ -27,6 +27,9 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
   const anonymousSpeechToken = await fetch(`${baseUrl}/api/speech/token`);
   assert.equal(anonymousSpeechToken.status, 401);
 
+  const anonymousInvoiceDelete = await fetch(`${baseUrl}/api/invoices/latest`, { method: 'DELETE' });
+  assert.equal(anonymousInvoiceDelete.status, 401);
+
   const anonymousChatResponse = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -81,4 +84,13 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
     body: JSON.stringify({ clientId: 0, subject: '', channel: 'otro' }),
   });
   assert.equal(invalidTicket.status, 400);
+
+  const deleteLatestInvoice = await fetch(`${baseUrl}/api/invoices/latest`, {
+    method: 'DELETE',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(deleteLatestInvoice.status, 200);
+  const deletedInvoice = await deleteLatestInvoice.json();
+  assert.equal(deletedInvoice.deletedInvoice.id, 4);
+  assert.equal((await (await fetch(`${baseUrl}/api/invoices`, { headers: { Cookie: cookie } })).json()).length, 3);
 });
