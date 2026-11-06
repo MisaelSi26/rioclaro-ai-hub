@@ -55,8 +55,10 @@ Configura endpoints y claves como referencias de Key Vault en los settings de Ap
 - `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` / `AZURE_DOCUMENT_INTELLIGENCE_KEY`
 - `AZURE_SEARCH_ENDPOINT` / `AZURE_SEARCH_KEY` / `AZURE_SEARCH_INDEX`
 - `AZURE_OPENAI_ENDPOINT` / `AZURE_OPENAI_KEY` / `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`
 
 El índice de Search debe tener campos `content` y `source`, además de `title` opcional. Se deben validar permisos, región, cuotas, modelo desplegado y versión de API con los recursos de la suscripción.
+Speech Services usa un token temporal emitido por el backend: la clave permanece en App Service y el navegador recibe únicamente el token de corta duración. El cliente necesita permiso de micrófono y una conexión HTTPS. El módulo de voz está disponible para los roles autorizados al chat.
 
 ## 6. App settings mínimos
 
@@ -75,7 +77,7 @@ AZURE_STORAGE_CONNECTION_STRING=<cadena almacenada en Key Vault>
 AZURE_STORAGE_CONTAINER=invoices
 ```
 
-Agrega variables de IA solo si vas a habilitar sus respectivas funciones. En el portal, configura Key Vault references y habilita la identidad administrada del App Service con permiso `get` de secretos.
+Agrega variables de IA solo si vas a habilitar sus respectivas funciones. Para Speech configura `AZURE_SPEECH_KEY` como referencia de Key Vault y `AZURE_SPEECH_REGION` con la región del recurso (por ejemplo `westus3`). En el portal, habilita la identidad administrada del App Service con permiso `get` de secretos.
 
 ## 7. Configurar GitHub Actions
 

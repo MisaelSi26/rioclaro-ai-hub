@@ -32,6 +32,7 @@ import {
 } from 'recharts';
 import LoginPage from './components/LoginPage.jsx';
 import DemoHub from './components/DemoHub.jsx';
+import VoiceModule from './components/VoiceModule.jsx';
 
 const productCards = [
   { title: 'Cloro industrial', image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80', subtitle: 'Desinfectantes y sanitizantes' },
@@ -736,12 +737,9 @@ function HubApp({ user, onLogout }) {
                       <span className="eyebrow dark">Consultas por voz</span>
                       <h3>Speech to text y text to speech</h3>
                     </div>
-                    <span className="pill neutral">Pendiente de configurar Azure Speech</span>
+                    <span className="pill success">Azure Speech habilitado</span>
                   </div>
-
-                  <div className="voice-box">
-                    <p>Configura Azure Speech Services para habilitar reconocimiento de voz y lectura de respuestas.</p>
-                  </div>
+                  <VoiceModule />
                 </div>
               )}
 

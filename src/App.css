@@ -846,6 +846,46 @@ img {
   border: 1px solid var(--line);
 }
 
+.voice-controls,
+.voice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.voice-controls input {
+  flex: 1 1 280px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.voice-status {
+  color: var(--muted);
+  font-size: 0.92rem !important;
+}
+
+.voice-answer {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.voice-answer p {
+  font-size: 1rem;
+}
+
+.voice-answer small {
+  color: var(--muted);
+}
+
 .voice-box p {
   margin: 0;
   font-size: 1.08rem;
