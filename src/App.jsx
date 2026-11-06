@@ -145,6 +145,9 @@ function HubApp({ user, onLogout }) {
   const [invoiceStatus, setInvoiceStatus] = useState('');
   const [invoiceDeleting, setInvoiceDeleting] = useState(false);
   const [invoiceFilter, setInvoiceFilter] = useState('Todas');
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoiceRefresh, setInvoiceRefresh] = useState(0);
+  const [invoicePagination, setInvoicePagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 0 });
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatQuestion, setChatQuestion] = useState('');
@@ -168,9 +171,6 @@ function HubApp({ user, onLogout }) {
   const canCreateTickets = user.roles.some((role) => ['Administrador', 'Ventas'].includes(role));
   const currentInvoice = activeTab === 'facturas' && Array.isArray(apiData) ? apiData[0] : null;
   const invoiceList = activeTab === 'facturas' && Array.isArray(apiData) ? apiData : [];
-  const filteredInvoices = invoiceFilter === 'Todas'
-    ? invoiceList
-    : invoiceList.filter((invoice) => getInvoiceAssignment(invoice) === invoiceFilter);
   const dashboardData = activeTab === 'dashboard' && !Array.isArray(apiData) ? apiData : null;
   const visibleTabs = isLanding
     ? moduleTabs
@@ -199,14 +199,29 @@ function HubApp({ user, onLogout }) {
     setApiData(null);
     setApiLoading(true);
     setApiError('');
-    fetch(`/api/${endpoint}`)
+    const url = activeTab === 'facturas'
+      ? `/api/invoices?page=${invoicePage}&assignment=${encodeURIComponent(invoiceFilter)}`
+      : `/api/${endpoint}`;
+    fetch(url)
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'No se pudieron cargar los datos.');
         return result;
       })
       .then((result) => {
-        if (active) setApiData(result);
+        if (!active) return;
+        if (activeTab === 'facturas') {
+          setApiData(result.items);
+          setInvoicePagination({
+            page: result.page,
+            pageSize: result.pageSize,
+            total: result.total,
+            totalPages: result.totalPages,
+          });
+          if (result.page !== invoicePage) setInvoicePage(result.page);
+        } else {
+          setApiData(result);
+        }
       })
       .catch((error) => {
         if (active) setApiError(error.message);
@@ -217,7 +232,7 @@ function HubApp({ user, onLogout }) {
     return () => {
       active = false;
     };
-  }, [activeTab, isLanding]);
+  }, [activeTab, isLanding, invoicePage, invoiceFilter, invoiceRefresh]);
 
   useEffect(() => {
     if (isLanding || activeTab !== 'clientes') return undefined;
@@ -261,7 +276,9 @@ function HubApp({ user, onLogout }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'No se pudo procesar la factura.');
       setInvoiceStatus(`${result.status} · confianza OCR ${result.confidence}%`);
-      setApiData((previous) => [result, ...(Array.isArray(previous) ? previous : [])]);
+      setInvoicePage(1);
+      setInvoiceFilter('Todas');
+      setInvoiceRefresh((previous) => previous + 1);
       setInvoiceFile(null);
       event.target.reset();
     } catch (error) {
@@ -280,13 +297,9 @@ function HubApp({ user, onLogout }) {
       const response = await fetch(`/api/invoices/${selectedInvoice.id}`, { method: 'DELETE' });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'No se pudo eliminar la factura.');
-      setApiData((previous) => (
-        Array.isArray(previous)
-          ? previous.filter((invoice) => invoice.id !== result.deletedInvoice.id)
-          : previous
-      ));
       setSelectedInvoice(null);
       setInvoiceStatus(result.warning || 'Factura eliminada.');
+      setInvoiceRefresh((previous) => previous + 1);
     } catch (error) {
       setInvoiceStatus(error.message);
     } finally {
@@ -694,7 +707,10 @@ function HubApp({ user, onLogout }) {
                       <h4>Facturas registradas</h4>
                       <label>
                         Tipo de asignación
-                        <select value={invoiceFilter} onChange={(event) => setInvoiceFilter(event.target.value)}>
+                        <select value={invoiceFilter} onChange={(event) => {
+                          setInvoiceFilter(event.target.value);
+                          setInvoicePage(1);
+                        }}>
                           <option>Todas</option>
                           <option>Validada</option>
                           <option>Requiere validación humana</option>
@@ -714,7 +730,7 @@ function HubApp({ user, onLogout }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredInvoices.map((invoice) => (
+                        {invoiceList.map((invoice) => (
                           <tr key={invoice.id}>
                             <td>{invoice.folio || '—'}</td>
                             <td>{invoice.supplier || '—'}</td>
@@ -734,10 +750,34 @@ function HubApp({ user, onLogout }) {
                             </td>
                           </tr>
                         ))}
-                        {!filteredInvoices.length && <tr><td colSpan="6">{apiLoading ? 'Cargando facturas…' : invoiceList.length ? 'No hay facturas con este filtro.' : 'No hay facturas cargadas.'}</td></tr>}
+                        {!invoiceList.length && <tr><td colSpan="6">{apiLoading ? 'Cargando facturas…' : invoicePagination.total ? 'No hay facturas en esta página.' : 'No hay facturas cargadas.'}</td></tr>}
                       </tbody>
                     </table>
                   </div>
+                  <nav className="invoice-pagination" aria-label="Paginación de facturas">
+                    <span>
+                      Página {invoicePagination.page} de {invoicePagination.totalPages || 1}
+                      {' · '}{invoicePagination.total} registros
+                    </span>
+                    <div>
+                      <button
+                        className="secondary-button small-button"
+                        type="button"
+                        onClick={() => setInvoicePage((page) => Math.max(1, page - 1))}
+                        disabled={apiLoading || invoicePagination.page <= 1}
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        className="secondary-button small-button"
+                        type="button"
+                        onClick={() => setInvoicePage((page) => Math.min(invoicePagination.totalPages, page + 1))}
+                        disabled={apiLoading || !invoicePagination.totalPages || invoicePagination.page >= invoicePagination.totalPages}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </nav>
                   {invoiceStatus && <p role="status">{invoiceStatus}</p>}
 
                   {Array.isArray(apiData) && apiData.some((invoice) => invoice.duplicate) && <div className="duplicate-alert">

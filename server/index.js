@@ -155,21 +155,75 @@ function createUser(claims, fallbackRole) {
   };
 }
 
-async function getInvoices() {
+async function getInvoices({ page, pageSize, assignment }) {
   const pool = await getSqlPool();
-  if (!pool) return [...demoData.invoices].sort((left, right) => Number(right.id) - Number(left.id));
-  const result = await pool.request().query(`
-    SELECT f.id, f.rfc, COALESCE(p.nombre, f.proveedor_nombre) AS supplier, f.fecha AS [date], f.folio,
-      f.subtotal, f.iva AS tax, f.total, f.confianza_ocr AS confidence, f.estado AS status,
-      CAST(CASE WHEN f.documento_url IS NULL OR f.documento_url = '' THEN 0 ELSE 1 END AS bit) AS hasDocument,
-      CAST(CASE WHEN EXISTS (
-        SELECT 1 FROM facturas d
-        WHERE d.id <> f.id AND d.rfc = f.rfc AND d.proveedor_id = f.proveedor_id
-          AND d.fecha = f.fecha AND d.folio = f.folio AND d.total = f.total
-      ) THEN 1 ELSE 0 END AS bit) AS duplicate
-    FROM facturas f LEFT JOIN proveedores p ON p.id = f.proveedor_id ORDER BY f.id DESC
-  `);
-  return result.recordset;
+  let invoices;
+  let total;
+  if (!pool) {
+    const allInvoices = [...demoData.invoices]
+      .sort((left, right) => Number(right.id) - Number(left.id))
+      .filter((invoice) => assignment === 'Todas' || getInvoiceAssignment(invoice) === assignment);
+    total = allInvoices.length;
+    const totalPages = Math.ceil(total / pageSize);
+    page = totalPages ? Math.min(page, totalPages) : 1;
+    invoices = allInvoices.slice((page - 1) * pageSize, page * pageSize);
+  } else {
+    const invoiceRows = `
+      WITH invoiceRows AS (
+        SELECT f.id, f.rfc, COALESCE(p.nombre, f.proveedor_nombre) AS supplier, f.fecha AS [date], f.folio,
+          f.subtotal, f.iva AS tax, f.total, f.confianza_ocr AS confidence, f.estado AS status,
+          CAST(CASE WHEN f.documento_url IS NULL OR f.documento_url = '' THEN 0 ELSE 1 END AS bit) AS hasDocument,
+          CAST(CASE WHEN EXISTS (
+            SELECT 1 FROM facturas d
+            WHERE d.id <> f.id AND d.rfc = f.rfc AND d.proveedor_id = f.proveedor_id
+              AND d.fecha = f.fecha AND d.folio = f.folio AND d.total = f.total
+          ) THEN 1 ELSE 0 END AS bit) AS duplicate,
+          CASE
+            WHEN f.estado LIKE N'%duplicad%' OR EXISTS (
+              SELECT 1 FROM facturas d
+              WHERE d.id <> f.id AND d.rfc = f.rfc AND d.proveedor_id = f.proveedor_id
+                AND d.fecha = f.fecha AND d.folio = f.folio AND d.total = f.total
+            ) THEN N'Presunta duplicada'
+            WHEN f.estado COLLATE Latin1_General_CI_AI LIKE N'%revision%'
+              OR f.estado COLLATE Latin1_General_CI_AI LIKE N'%humana%'
+              THEN N'Requiere validación humana'
+            ELSE N'Validada'
+          END AS assignment
+        FROM facturas f LEFT JOIN proveedores p ON p.id = f.proveedor_id
+      )
+    `;
+    const countResult = await pool.request()
+      .input('assignment', sql.NVarChar(40), assignment)
+      .query(`${invoiceRows} SELECT COUNT(*) AS total FROM invoiceRows WHERE @assignment = N'Todas' OR assignment = @assignment`);
+    total = Number(countResult.recordset[0]?.total || 0);
+    const totalPages = Math.ceil(total / pageSize);
+    page = totalPages ? Math.min(page, totalPages) : 1;
+    const result = await pool.request()
+      .input('assignment', sql.NVarChar(40), assignment)
+      .input('offset', sql.Int, (page - 1) * pageSize)
+      .input('pageSize', sql.Int, pageSize)
+      .query(`${invoiceRows}
+        SELECT * FROM invoiceRows
+        WHERE @assignment = N'Todas' OR assignment = @assignment
+        ORDER BY id DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+      `);
+    invoices = result.recordset;
+  }
+  const totalPages = Math.ceil(total / pageSize);
+  return {
+    items: invoices,
+    page: totalPages ? Math.min(page, totalPages) : 1,
+    pageSize,
+    total,
+    totalPages,
+  };
+}
+
+function getInvoiceAssignment(invoice) {
+  const status = String(invoice.status || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  if (invoice.duplicate || status.includes('duplicad')) return 'Presunta duplicada';
+  if (status.includes('revision') || status.includes('humana')) return 'Requiere validación humana';
+  return 'Validada';
 }
 
 async function findInvoiceDocument(id) {
@@ -505,9 +559,20 @@ app.get('/api/dashboard', requireRoles('Administrador', 'Dirección', 'Finanzas'
   }
 });
 
-app.get('/api/invoices', requireRoles('Administrador', 'Compras', 'Finanzas'), async (_req, res, next) => {
+app.get('/api/invoices', requireRoles('Administrador', 'Compras', 'Finanzas'), async (req, res, next) => {
+  const page = req.query.page === undefined ? 1 : Number(req.query.page);
+  const assignment = req.query.assignment === undefined ? 'Todas' : req.query.assignment;
+  const assignments = ['Todas', 'Validada', 'Requiere validación humana', 'Presunta duplicada'];
+  if (!/^\d+$/.test(String(req.query.page ?? '1')) || !Number.isSafeInteger(page) || page < 1 || page > 214748364) {
+    res.status(400).json({ error: 'El número de página no es válido.' });
+    return;
+  }
+  if (!assignments.includes(assignment)) {
+    res.status(400).json({ error: 'El filtro de asignación no es válido.' });
+    return;
+  }
   try {
-    res.json(await getInvoices());
+    res.json(await getInvoices({ page, pageSize: 10, assignment }));
   } catch (error) {
     next(error);
   }
