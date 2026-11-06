@@ -210,6 +210,20 @@ img {
   min-width: 720px;
 }
 
+.invoice-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  color: var(--muted);
+}
+
+.invoice-pagination > div {
+  display: flex;
+  gap: 8px;
+}
+
 .invoice-list-head h4,
 .invoice-document-preview h4 {
   margin: 0;
@@ -1668,6 +1682,15 @@ img {
 
   .invoice-list-head select {
     width: 100%;
+  }
+
+  .invoice-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invoice-pagination > div {
+    justify-content: space-between;
   }
 
   .invoice-detail-grid {
