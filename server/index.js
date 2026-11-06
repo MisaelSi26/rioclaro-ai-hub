@@ -161,6 +161,7 @@ async function getInvoices() {
   const result = await pool.request().query(`
     SELECT f.id, f.rfc, COALESCE(p.nombre, f.proveedor_nombre) AS supplier, f.fecha AS [date], f.folio,
       f.subtotal, f.iva AS tax, f.total, f.confianza_ocr AS confidence, f.estado AS status,
+      CAST(CASE WHEN f.documento_url IS NULL OR f.documento_url = '' THEN 0 ELSE 1 END AS bit) AS hasDocument,
       CAST(CASE WHEN EXISTS (
         SELECT 1 FROM facturas d
         WHERE d.id <> f.id AND d.rfc = f.rfc AND d.proveedor_id = f.proveedor_id
@@ -169,6 +170,41 @@ async function getInvoices() {
     FROM facturas f LEFT JOIN proveedores p ON p.id = f.proveedor_id ORDER BY f.id DESC
   `);
   return result.recordset;
+}
+
+async function findInvoiceDocument(id) {
+  const pool = await getSqlPool();
+  if (!pool) return null;
+  const result = await pool.request()
+    .input('id', sql.Int, id)
+    .query('SELECT documento_url AS documentName FROM facturas WHERE id = @id');
+  return result.recordset[0] || null;
+}
+
+async function deleteInvoiceRecord(id) {
+  const pool = await getSqlPool();
+  if (pool) {
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        DELETE FROM facturas
+        OUTPUT DELETED.id, DELETED.documento_url AS documentName
+        WHERE id = @id
+      `);
+    return result.recordset[0] || null;
+  }
+  const index = demoData.invoices.findIndex((invoice) => Number(invoice.id) === id);
+  return index < 0 ? null : demoData.invoices.splice(index, 1)[0];
+}
+
+async function deleteInvoiceDocument(documentName) {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  const containerName = process.env.AZURE_STORAGE_CONTAINER;
+  if (!connectionString || !containerName) {
+    throw new Error('Azure Blob Storage no está configurado.');
+  }
+  const container = BlobServiceClient.fromConnectionString(connectionString).getContainerClient(containerName);
+  await container.getBlockBlobClient(documentName).deleteIfExists();
 }
 
 async function getInventory() {
@@ -477,6 +513,75 @@ app.get('/api/invoices', requireRoles('Administrador', 'Compras', 'Finanzas'), a
   }
 });
 
+app.get('/api/invoices/:id/document', requireRoles('Administrador', 'Compras', 'Finanzas'), async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id < 1 || id > 2147483647) {
+    res.status(400).json({ error: 'El identificador de factura no es válido.' });
+    return;
+  }
+  try {
+    const invoice = await findInvoiceDocument(id);
+    if (!invoice?.documentName) {
+      res.status(404).json({ error: 'No hay un documento original disponible para esta factura.' });
+      return;
+    }
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    const containerName = process.env.AZURE_STORAGE_CONTAINER;
+    if (!connectionString || !containerName) {
+      res.status(503).json({ error: 'Azure Blob Storage no está configurado.' });
+      return;
+    }
+    const blob = BlobServiceClient.fromConnectionString(connectionString)
+      .getContainerClient(containerName)
+      .getBlockBlobClient(invoice.documentName);
+    const properties = await blob.getProperties();
+    const contentType = ['application/pdf', 'image/jpeg', 'image/png'].includes(properties.contentType)
+      ? properties.contentType
+      : 'application/octet-stream';
+    const document = await blob.downloadToBuffer();
+    res.set({
+      'Cache-Control': 'private, no-store',
+      'Content-Disposition': 'inline',
+      'Content-Type': contentType,
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.send(document);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/invoices/:id', requireRoles('Administrador', 'Compras', 'Finanzas'), async (req, res, next) => {
+  if (req.params.id === 'latest') {
+    next();
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id < 1 || id > 2147483647) {
+    res.status(400).json({ error: 'El identificador de factura no es válido.' });
+    return;
+  }
+  try {
+    const deletedInvoice = await deleteInvoiceRecord(id);
+    if (!deletedInvoice) {
+      res.status(404).json({ error: 'No se encontró la factura seleccionada.' });
+      return;
+    }
+    let warning;
+    if (deletedInvoice.documentName) {
+      try {
+        await deleteInvoiceDocument(deletedInvoice.documentName);
+      } catch (error) {
+        console.error('Invoice record deleted but Blob cleanup failed:', error.message);
+        warning = 'La factura se eliminó de la base de datos, pero no se pudo eliminar su documento original de Blob Storage.';
+      }
+    }
+    res.json({ deletedInvoice: { id: deletedInvoice.id }, ...(warning ? { warning } : {}) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.delete('/api/invoices/latest', requireRoles('Administrador', 'Compras', 'Finanzas'), async (_req, res, next) => {
   try {
     const pool = await getSqlPool();
@@ -584,7 +689,7 @@ app.post('/api/invoices', requireRoles('Administrador', 'Compras', 'Finanzas'), 
       total: getField('InvoiceTotal'),
       confidence: Number.isFinite(confidence) ? Number(confidence.toFixed(2)) : 0,
       status: confidence < 90 ? 'Revisión Humana Requerida' : 'Pendiente',
-      documentName: blobName || req.file.originalname,
+      documentName: blobName || null,
     };
     const requiredOcrFields = [invoice.rfc, invoice.supplier, invoice.date, invoice.folio, invoice.total];
     if (requiredOcrFields.some((value) => value == null || value === '')) {

@@ -7,6 +7,7 @@ import {
   Bot,
   Building2,
   CheckCircle2,
+  Eye,
   FileText,
   Lock,
   Mic,
@@ -16,6 +17,7 @@ import {
   Users,
   Warehouse,
   Zap,
+  X,
 } from 'lucide-react';
 import {
   Bar,
@@ -127,6 +129,13 @@ const moduleRoleAccess = {
   dashboard: ['Administrador', 'Dirección', 'Finanzas'],
 };
 
+function getInvoiceAssignment(invoice) {
+  const status = String(invoice.status || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  if (invoice.duplicate || status.includes('duplicad')) return 'Presunta duplicada';
+  if (status.includes('revision') || status.includes('humana')) return 'Requiere validación humana';
+  return 'Validada';
+}
+
 function HubApp({ user, onLogout }) {
   const [darkMode, setDarkMode] = useState(false);
   const [apiData, setApiData] = useState(null);
@@ -135,6 +144,8 @@ function HubApp({ user, onLogout }) {
   const [invoiceFile, setInvoiceFile] = useState(null);
   const [invoiceStatus, setInvoiceStatus] = useState('');
   const [invoiceDeleting, setInvoiceDeleting] = useState(false);
+  const [invoiceFilter, setInvoiceFilter] = useState('Todas');
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatQuestion, setChatQuestion] = useState('');
   const [chatStatus, setChatStatus] = useState('');
@@ -156,12 +167,17 @@ function HubApp({ user, onLogout }) {
   const canAccessModule = isLanding || moduleRoleAccess[activeTab]?.some((role) => user.roles.includes(role));
   const canCreateTickets = user.roles.some((role) => ['Administrador', 'Ventas'].includes(role));
   const currentInvoice = activeTab === 'facturas' && Array.isArray(apiData) ? apiData[0] : null;
+  const invoiceList = activeTab === 'facturas' && Array.isArray(apiData) ? apiData : [];
+  const filteredInvoices = invoiceFilter === 'Todas'
+    ? invoiceList
+    : invoiceList.filter((invoice) => getInvoiceAssignment(invoice) === invoiceFilter);
   const dashboardData = activeTab === 'dashboard' && !Array.isArray(apiData) ? apiData : null;
   const visibleTabs = isLanding
     ? moduleTabs
     : moduleTabs.filter(({ id }) => moduleRoleAccess[id]?.some((role) => user.roles.includes(role)));
 
   useEffect(() => {
+    if (activeTab !== 'facturas') setSelectedInvoice(null);
     if (isLanding) {
       setApiData(null);
       setApiError('');
@@ -225,6 +241,15 @@ function HubApp({ user, onLogout }) {
     };
   }, [activeTab, isLanding]);
 
+  useEffect(() => {
+    if (!selectedInvoice) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape' && !invoiceDeleting) setSelectedInvoice(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedInvoice, invoiceDeleting]);
+
   async function uploadInvoice(event) {
     event.preventDefault();
     if (!invoiceFile) return;
@@ -244,15 +269,15 @@ function HubApp({ user, onLogout }) {
     }
   }
 
-  async function deleteLatestInvoice() {
-    if (!currentInvoice || invoiceDeleting) return;
-    const confirmed = window.confirm('¿Eliminar la última factura cargada? Esta acción no se puede deshacer.');
+  async function deleteSelectedInvoice() {
+    if (!selectedInvoice || invoiceDeleting) return;
+    const confirmed = window.confirm(`¿Eliminar la factura ${selectedInvoice.folio || selectedInvoice.id}? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
 
     setInvoiceDeleting(true);
-    setInvoiceStatus('Eliminando la última factura...');
+    setInvoiceStatus('Eliminando factura...');
     try {
-      const response = await fetch('/api/invoices/latest', { method: 'DELETE' });
+      const response = await fetch(`/api/invoices/${selectedInvoice.id}`, { method: 'DELETE' });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'No se pudo eliminar la factura.');
       setApiData((previous) => (
@@ -260,7 +285,8 @@ function HubApp({ user, onLogout }) {
           ? previous.filter((invoice) => invoice.id !== result.deletedInvoice.id)
           : previous
       ));
-      setInvoiceStatus(result.warning || 'Última factura eliminada.');
+      setSelectedInvoice(null);
+      setInvoiceStatus(result.warning || 'Factura eliminada.');
     } catch (error) {
       setInvoiceStatus(error.message);
     } finally {
@@ -646,7 +672,6 @@ function HubApp({ user, onLogout }) {
                       />
                       {invoiceFile && <span>{invoiceFile.name}</span>}
                       <button className="primary-button small-button" type="submit" disabled={!invoiceFile}>Procesar factura</button>
-                      {invoiceStatus && <span role="status">{invoiceStatus}</span>}
                       <div className="upload-types">
                         <span>PDF</span>
                         <span>JPG</span>
@@ -664,40 +689,108 @@ function HubApp({ user, onLogout }) {
                     </div>
                   </div>
 
-                  <div className="table-card">
+                  <div className="table-card invoice-table-card">
+                    <div className="invoice-list-head">
+                      <h4>Facturas registradas</h4>
+                      <label>
+                        Tipo de asignación
+                        <select value={invoiceFilter} onChange={(event) => setInvoiceFilter(event.target.value)}>
+                          <option>Todas</option>
+                          <option>Validada</option>
+                          <option>Requiere validación humana</option>
+                          <option>Presunta duplicada</option>
+                        </select>
+                      </label>
+                    </div>
                     <table>
+                      <thead>
+                        <tr>
+                          <th>Folio</th>
+                          <th>Proveedor</th>
+                          <th>Fecha</th>
+                          <th>Total</th>
+                          <th>Asignación</th>
+                          <th>Detalle</th>
+                        </tr>
+                      </thead>
                       <tbody>
-                        {(currentInvoice ? [
-                          { field: 'RFC', value: currentInvoice.rfc },
-                          { field: 'Proveedor', value: currentInvoice.supplier },
-                          { field: 'Fecha', value: currentInvoice.date },
-                          { field: 'Folio', value: currentInvoice.folio },
-                          { field: 'Subtotal', value: currentInvoice.subtotal },
-                          { field: 'IVA', value: currentInvoice.tax },
-                          { field: 'Total', value: currentInvoice.total },
-                        ] : []).map((row) => (
-                          <tr key={row.field}>
-                            <th>{row.field}</th>
-                            <td>{row.value ?? '—'}</td>
+                        {filteredInvoices.map((invoice) => (
+                          <tr key={invoice.id}>
+                            <td>{invoice.folio || '—'}</td>
+                            <td>{invoice.supplier || '—'}</td>
+                            <td>{invoice.date || '—'}</td>
+                            <td>{invoice.total == null ? '—' : `$${Number(invoice.total).toLocaleString('es-MX')}`}</td>
+                            <td><span className="invoice-assignment">{getInvoiceAssignment(invoice)}</span></td>
+                            <td>
+                              <button
+                                className="ghost-button small-button"
+                                type="button"
+                                onClick={() => setSelectedInvoice(invoice)}
+                                aria-label={`Ver factura ${invoice.folio || invoice.id}`}
+                              >
+                                <Eye size={16} />
+                                Ver
+                              </button>
+                            </td>
                           </tr>
                         ))}
-                        {!currentInvoice && <tr><td colSpan="2">{apiLoading ? 'Cargando facturas…' : 'No hay facturas cargadas.'}</td></tr>}
+                        {!filteredInvoices.length && <tr><td colSpan="6">{apiLoading ? 'Cargando facturas…' : invoiceList.length ? 'No hay facturas con este filtro.' : 'No hay facturas cargadas.'}</td></tr>}
                       </tbody>
                     </table>
                   </div>
-                  {currentInvoice && <button
-                    className="secondary-button small-button invoice-delete-button"
-                    type="button"
-                    onClick={deleteLatestInvoice}
-                    disabled={invoiceDeleting}
-                  >
-                    <Trash2 size={16} />
-                    {invoiceDeleting ? 'Eliminando...' : 'Eliminar última factura'}
-                  </button>}
+                  {invoiceStatus && <p role="status">{invoiceStatus}</p>}
 
                   {Array.isArray(apiData) && apiData.some((invoice) => invoice.duplicate) && <div className="duplicate-alert">
                     <AlertTriangle size={18} />
                     <span>Posible Factura Duplicada · no se permite aprobación automática.</span>
+                  </div>}
+                  {selectedInvoice && <div className="invoice-modal-backdrop" onMouseDown={(event) => {
+                    if (event.target === event.currentTarget && !invoiceDeleting) setSelectedInvoice(null);
+                  }}>
+                    <section className="invoice-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title">
+                      <header>
+                        <div>
+                          <span className="eyebrow dark">Detalle de factura</span>
+                          <h3 id="invoice-modal-title">{selectedInvoice.folio || `Factura ${selectedInvoice.id}`}</h3>
+                        </div>
+                        <button className="ghost-button invoice-modal-close" type="button" onClick={() => setSelectedInvoice(null)} disabled={invoiceDeleting} aria-label="Cerrar detalle">
+                          <X size={20} />
+                        </button>
+                      </header>
+                      <div className="invoice-modal-body">
+                        <div className="invoice-detail-grid">
+                          {[
+                            ['Asignación', getInvoiceAssignment(selectedInvoice)],
+                            ['Proveedor', selectedInvoice.supplier],
+                            ['RFC', selectedInvoice.rfc],
+                            ['Fecha', selectedInvoice.date],
+                            ['Folio', selectedInvoice.folio],
+                            ['Subtotal', selectedInvoice.subtotal],
+                            ['IVA', selectedInvoice.tax],
+                            ['Total', selectedInvoice.total],
+                            ['Confianza OCR', selectedInvoice.confidence == null ? null : `${selectedInvoice.confidence}%`],
+                          ].map(([label, value]) => (
+                            <div key={label}>
+                              <span>{label}</span>
+                              <strong>{value == null || value === '' ? '—' : value}</strong>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="invoice-document-preview">
+                          <h4>Documento original</h4>
+                          {selectedInvoice.hasDocument
+                            ? <iframe title={`Documento original de la factura ${selectedInvoice.folio || selectedInvoice.id}`} src={`/api/invoices/${selectedInvoice.id}/document`} />
+                            : <p>No hay un documento original almacenado para esta factura.</p>}
+                        </div>
+                      </div>
+                      <footer>
+                        <button className="secondary-button small-button invoice-delete-button" type="button" onClick={deleteSelectedInvoice} disabled={invoiceDeleting}>
+                          <Trash2 size={16} />
+                          {invoiceDeleting ? 'Eliminando...' : 'Eliminar factura'}
+                        </button>
+                        <button className="ghost-button small-button" type="button" onClick={() => setSelectedInvoice(null)} disabled={invoiceDeleting}>Cerrar</button>
+                      </footer>
+                    </section>
                   </div>}
                 </div>
               )}

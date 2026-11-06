@@ -29,6 +29,10 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
 
   const anonymousInvoiceDelete = await fetch(`${baseUrl}/api/invoices/latest`, { method: 'DELETE' });
   assert.equal(anonymousInvoiceDelete.status, 401);
+  const anonymousSelectedInvoiceDelete = await fetch(`${baseUrl}/api/invoices/1`, { method: 'DELETE' });
+  assert.equal(anonymousSelectedInvoiceDelete.status, 401);
+  const anonymousInvoiceDocument = await fetch(`${baseUrl}/api/invoices/1/document`);
+  assert.equal(anonymousInvoiceDocument.status, 401);
 
   const anonymousChatResponse = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
@@ -92,5 +96,27 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
   assert.equal(deleteLatestInvoice.status, 200);
   const deletedInvoice = await deleteLatestInvoice.json();
   assert.equal(deletedInvoice.deletedInvoice.id, 4);
-  assert.equal((await (await fetch(`${baseUrl}/api/invoices`, { headers: { Cookie: cookie } })).json()).length, 3);
+  const remainingAfterLatestDelete = await (await fetch(`${baseUrl}/api/invoices`, { headers: { Cookie: cookie } })).json();
+  assert.equal(remainingAfterLatestDelete.length, 3);
+
+  const unavailableDemoDocument = await fetch(`${baseUrl}/api/invoices/3/document`, { headers: { Cookie: cookie } });
+  assert.equal(unavailableDemoDocument.status, 404);
+  const deleteSelectedInvoice = await fetch(`${baseUrl}/api/invoices/3`, {
+    method: 'DELETE',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(deleteSelectedInvoice.status, 200);
+  assert.equal((await deleteSelectedInvoice.json()).deletedInvoice.id, 3);
+
+  const missingInvoice = await fetch(`${baseUrl}/api/invoices/999`, {
+    method: 'DELETE',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(missingInvoice.status, 404);
+  const invalidInvoiceId = await fetch(`${baseUrl}/api/invoices/not-an-id`, {
+    method: 'DELETE',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(invalidInvoiceId.status, 400);
+  assert.equal((await (await fetch(`${baseUrl}/api/invoices`, { headers: { Cookie: cookie } })).json()).length, 2);
 });
