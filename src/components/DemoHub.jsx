@@ -36,6 +36,12 @@ const demoModules = [
   { id: 'clientes', label: 'Atención a clientes', icon: Users },
 ];
 
+const demoQuickStarts = [
+  { module: 'facturas', title: 'Revisar una factura', description: 'Simula OCR, confianza y detección de duplicados.', icon: FileText },
+  { module: 'inventario', title: 'Buscar inventario', description: 'Consulta existencias con nombres y alias de productos.', icon: Warehouse },
+  { module: 'chat', title: 'Preguntar al asistente', description: 'Explora respuestas de ejemplo con sus fuentes.', icon: Bot },
+];
+
 const initialInvoices = [
   { id: 'F-20189', supplier: 'Distribuidora del Sur S.A.', rfc: 'RCO980102XYZ', total: 14476.8, confidence: 96, status: 'Validada', duplicate: false },
   { id: 'F-21450', supplier: 'Higiene Industrial MX', rfc: 'PQR120315ABC', total: 9802, confidence: 88, status: 'Revisión humana requerida', duplicate: false },
@@ -207,6 +213,22 @@ function DemoHub() {
           <section className="module-panel demo-panel">
             {module === 'dashboard' && (
               <div className="module-content">
+                <section className="demo-quick-start" aria-labelledby="demo-quick-start-title">
+                  <div className="demo-quick-heading">
+                    <span className="eyebrow dark">Empieza aquí</span>
+                    <h2 id="demo-quick-start-title">¿Qué te gustaría probar?</h2>
+                    <p>Elige una acción para recorrer una solución en menos de un minuto.</p>
+                  </div>
+                  <div className="demo-quick-grid">
+                    {demoQuickStarts.map(({ module: moduleId, title, description, icon: Icon }) => (
+                      <Link className="demo-quick-card" key={moduleId} to={`/demo/${moduleId}`}>
+                        <span className="demo-quick-icon"><Icon size={20} /></span>
+                        <span className="demo-quick-copy"><strong>{title}</strong><small>{description}</small></span>
+                        <span className="demo-quick-arrow" aria-hidden="true">→</span>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
                 <div className="demo-kpis">
                   <div className="kpi-box"><span>Ventas totales · demo</span><strong>$18.4M</strong></div>
                   <div className="kpi-box"><span>Facturas procesadas</span><strong>8,640</strong></div>

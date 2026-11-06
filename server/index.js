@@ -210,7 +210,17 @@ async function getDashboard() {
   const pool = await getSqlPool();
   if (!pool) return getDemoDashboard();
   const [invoiceResult, ticketResult, branchResult, clientResult, monthlyResult] = await Promise.all([
-    pool.request().query(`SELECT COUNT(*) AS processed, SUM(CASE WHEN EXISTS (SELECT 1 FROM facturas d WHERE d.id < f.id AND d.rfc=f.rfc AND d.proveedor_id=f.proveedor_id AND d.fecha=f.fecha AND d.folio=f.folio AND d.total=f.total) THEN 1 ELSE 0 END) AS duplicates FROM facturas f`),
+    pool.request().query(`
+      SELECT COUNT(*) AS processed,
+        (SELECT COUNT(*) FROM facturas f
+          WHERE EXISTS (
+            SELECT 1 FROM facturas d
+            WHERE d.id < f.id AND d.rfc=f.rfc AND d.proveedor_id=f.proveedor_id
+              AND d.fecha=f.fecha AND d.folio=f.folio AND d.total=f.total
+          )
+        ) AS duplicates
+      FROM facturas
+    `),
     pool.request().query(`SELECT COUNT(*) AS openTickets FROM tickets_cliente WHERE estatus <> 'Resuelto'`),
     pool.request().query(`SELECT s.nombre AS branch, SUM(v.total) AS sales FROM ventas v JOIN sucursales s ON s.id=v.sucursal_id GROUP BY s.nombre`),
     pool.request().query(`SELECT COUNT(*) AS clients FROM clientes`),
