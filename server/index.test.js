@@ -44,6 +44,26 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
   const inventory = await inventoryResponse.json();
   assert.equal(inventory.length, 5);
 
+  const inventoryChatResponse = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: '¿Cuánto cloro queda?' }),
+  });
+  assert.equal(inventoryChatResponse.status, 200);
+  const inventoryAnswer = await inventoryChatResponse.json();
+  assert.match(inventoryAnswer.answer, /426 unidades/);
+  assert.deepEqual(inventoryAnswer.sources, ['Azure SQL · Inventario actual']);
+
+  const branchInventoryChatResponse = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: '¿Cuánto cloro queda en Guadalajara?' }),
+  });
+  assert.equal(branchInventoryChatResponse.status, 200);
+  const branchInventoryAnswer = await branchInventoryChatResponse.json();
+  assert.match(branchInventoryAnswer.answer, /240 unidades/);
+  assert.match(branchInventoryAnswer.answer, /Guadalajara: 240 unidades/);
+
   const unconfiguredSpeechToken = await fetch(`${baseUrl}/api/speech/token`, { headers: { Cookie: cookie } });
   assert.equal(unconfiguredSpeechToken.status, 503);
 

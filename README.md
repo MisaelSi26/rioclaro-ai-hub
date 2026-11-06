@@ -56,9 +56,9 @@ Abre `/demo` desde la landing o directamente para recorrer todos los módulos si
 - `GET /api/inventory` — existencia por sucursal.
 - `GET /api/tickets`, `POST /api/tickets` — tickets CRM.
 - `GET /api/dashboard` — KPI por sucursal.
-- `POST /api/chat` — búsqueda RAG y generación de respuesta con citas.
+- `POST /api/chat` — consultas de inventario se responden con existencias actuales de SQL; otras consultas usan búsqueda RAG y generación de respuesta con citas.
 
-Los endpoints de negocio requieren autenticación y rol. Las rutas de facturas requieren Document Intelligence; en producción también requieren Blob Storage para conservar el original. Chat requiere AI Search y Azure OpenAI.
+Los endpoints de negocio requieren autenticación y rol. Las rutas de facturas requieren Document Intelligence; en producción también requieren Blob Storage para conservar el original. Las consultas generales del chat requieren AI Search y Azure OpenAI; las consultas de inventario usan Azure SQL y los roles con acceso al inventario.
 
 ## Ejecución local
 
