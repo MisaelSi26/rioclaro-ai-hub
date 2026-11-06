@@ -57,8 +57,10 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        'connect-src': ["'self'", 'https://*.speech.microsoft.com', 'wss://*.speech.microsoft.com', 'https://*.cognitive.microsoft.com', 'wss://*.cognitive.microsoft.com'],
         'img-src': ["'self'", 'data:', 'https://images.unsplash.com'],
         'style-src': ["'self'", "'unsafe-inline'"],
+        'worker-src': ["'self'", 'blob:'],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -271,6 +273,28 @@ app.get('/api/auth/config', (_req, res) => {
 
 app.get('/api/auth/me', (req, res) => {
   res.json({ user: getUser(req) });
+});
+
+app.get('/api/speech/token', requireRoles('Administrador', 'Dirección', 'Compras', 'Ventas', 'Bodega'), async (_req, res, next) => {
+  const speechKey = process.env.AZURE_SPEECH_KEY;
+  const speechRegion = process.env.AZURE_SPEECH_REGION;
+  if (!speechKey || !speechRegion) {
+    res.status(503).json({ error: 'Azure Speech Services no está configurado.' });
+    return;
+  }
+  try {
+    const tokenResponse = await fetch(`https://${speechRegion}.api.cognitive.microsoft.com/sts/v1.0/issueToken`, {
+      method: 'POST',
+      headers: { 'Ocp-Apim-Subscription-Key': speechKey },
+    });
+    if (!tokenResponse.ok) throw new Error(`Azure Speech respondió ${tokenResponse.status} al solicitar un token.`);
+    const token = await tokenResponse.text();
+    if (!token) throw new Error('Azure Speech devolvió un token vacío.');
+    res.set('Cache-Control', 'no-store, private');
+    res.json({ token, region: speechRegion });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/auth/login', authLimiter, async (req, res, next) => {
@@ -589,7 +613,7 @@ app.post('/api/chat', requireRoles('Administrador', 'Dirección', 'Compras', 'Ve
     const searchResponse = await fetch(`${searchEndpoint.replace(/\/$/, '')}/indexes/${encodeURIComponent(indexName)}/docs/search?api-version=2024-07-01`, {
       method: 'POST',
       headers: { 'api-key': searchKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ search: question, top: 5, select: 'content,source,title' }),
+      body: JSON.stringify({ search: question, searchMode: 'any', top: 5, select: 'content,source,title' }),
     });
     if (!searchResponse.ok) throw new Error(`Azure AI Search respondió ${searchResponse.status}.`);
     const documents = (await searchResponse.json()).value || [];

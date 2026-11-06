@@ -107,6 +107,7 @@ Usa `.env.example` como plantilla. Las claves y cadenas de conexión se leen **s
 | `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`, `AZURE_DOCUMENT_INTELLIGENCE_KEY` | OCR | Extracción de factura |
 | `AZURE_SEARCH_ENDPOINT`, `AZURE_SEARCH_KEY`, `AZURE_SEARCH_INDEX` | Chat | Recuperación de documentos |
 | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_KEY`, `AZURE_OPENAI_DEPLOYMENT` | Chat | Generación de respuesta |
+| `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` | Voz | Reconocimiento y lectura de respuestas |
 
 En App Service guarda secretos en Key Vault y vincúlalos como app settings. No subas `.env` al repositorio.
 
@@ -154,7 +155,7 @@ El workflow de `.github/workflows/azure-webapp.yml` prepara el paquete y desplie
 
 ## Alcance actual / pendientes antes de producción
 
-- La pantalla `/voz` conserva una demostración visual; Speech Services aún no tiene flujo de micrófono/texto a voz conectado.
+- `/voz` usa Azure Speech para reconocer preguntas en español y leer las respuestas del asistente; requiere permiso de micrófono, HTTPS y configuración de la clave y región del recurso.
 - El listado y alta de tickets están conectados a API/SQL; falta habilitar edición y cierre en la UI.
 - El catálogo SQL de inventario se consulta; la edición del catálogo no está expuesta en la UI.
 - Las respuestas de IA dependen de que el índice tenga documentos y campos `content`, `source` y opcionalmente `title`.

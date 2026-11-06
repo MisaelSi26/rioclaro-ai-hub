@@ -24,6 +24,16 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
   const anonymousResponse = await fetch(`${baseUrl}/api/inventory`);
   assert.equal(anonymousResponse.status, 401);
 
+  const anonymousSpeechToken = await fetch(`${baseUrl}/api/speech/token`);
+  assert.equal(anonymousSpeechToken.status, 401);
+
+  const anonymousChatResponse = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: 'cloro' }),
+  });
+  assert.equal(anonymousChatResponse.status, 401);
+
   const loginResponse = await fetch(`${baseUrl}/auth/dev-login`, { method: 'POST' });
   assert.equal(loginResponse.status, 200);
   const cookie = loginResponse.headers.getSetCookie().map((value) => value.split(';', 1)[0]).join('; ');
@@ -33,6 +43,9 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
   assert.equal(inventoryResponse.status, 200);
   const inventory = await inventoryResponse.json();
   assert.equal(inventory.length, 5);
+
+  const unconfiguredSpeechToken = await fetch(`${baseUrl}/api/speech/token`, { headers: { Cookie: cookie } });
+  assert.equal(unconfiguredSpeechToken.status, 503);
 
   const ticketResponse = await fetch(`${baseUrl}/api/tickets`, {
     method: 'POST',
