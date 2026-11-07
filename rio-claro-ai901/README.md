@@ -129,6 +129,7 @@ Completa estas variables en `.env` (no se requieren comillas salvo que el valor 
 | `DOC_INTELLIGENCE_KEY` | Clave del recurso de Document Intelligence. |
 | `STORAGE_CONNECTION_STRING` | Cadena de conexión de la cuenta Storage. Si está vacía, se usa almacenamiento local. |
 | `STORAGE_CONTAINER` | Contenedor Blob; predeterminado `rio-claro-invoices`. Se crea automáticamente si no existe. |
+| `CHATBOT_ALLOWED_ROLES` | Lista separada por comas de roles de aplicación Entra autorizados para consultar documentos del asistente. Vacía por defecto: el acceso se deniega. |
 
 ### Preparar Azure AI Search
 
@@ -138,7 +139,7 @@ La aplicación consulta un índice ya existente; no crea el índice ni ingiere d
 - Opcionalmente, `title` y `source` (o `metadata_storage_name` / `metadata_storage_path`) para mostrar referencias legibles.
 - Un campo clave, normalmente `id`, según el esquema que configures en el servicio.
 
-Aplica permisos y filtros apropiados para que cada usuario solo pueda recuperar documentos que está autorizado a consultar. No indexar información no aprobada.
+Aplica permisos y filtros apropiados para que cada usuario solo pueda recuperar documentos que está autorizado a consultar. El control de rol de la aplicación restringe el acceso al chatbot, pero no sustituye los permisos por documento ni el filtrado por usuario/tenant en Azure AI Search. No indexar información no aprobada.
 
 ## Ejecución y pruebas
 
@@ -168,9 +169,10 @@ Las pruebas usan dobles de prueba y no requieren una suscripción Azure ni crede
    ```
 
 3. En **Configuration > Application settings**, agrega todas las variables requeridas. Genera un valor criptográficamente aleatorio para `FLASK_SECRET_KEY`; no uses el secreto generado automáticamente por la aplicación para un entorno persistente. Configura `MAX_UPLOAD_MB` según los límites de App Service y tus necesidades. Para ZIP deploy con instalación de dependencias en App Service, agrega también `SCM_DO_BUILD_DURING_DEPLOYMENT=true`.
-4. Asigna a la identidad de la Web App únicamente los permisos necesarios para acceder a los recursos. Para un entorno real, sustituye claves/cadenas de conexión por identidad administrada y Azure Key Vault donde sea compatible, activa HTTPS y establece una política de retención para facturas.
-5. Despliega desde GitHub Actions (ver abajo) o configura el repositorio en **Deployment Center**. Comprueba los logs de App Service y realiza una prueba controlada con datos no sensibles.
-6. Valida acceso, citas RAG, campos/confianza de factura, almacenamiento, límites de carga, errores y recuperación antes de habilitar a usuarios.
+4. En **Authentication** de App Service, configura Microsoft Entra ID, exige autenticación y restringe el tenant a la organización. Crea y asigna roles de aplicación, y configura `CHATBOT_ALLOWED_ROLES` solo con los roles autorizados para consultar el índice. La ruta del asistente falla cerrada si Easy Auth no está activo, no hay roles configurados o el usuario no tiene uno permitido.
+5. Asigna a la identidad de la Web App únicamente los permisos necesarios para acceder a los recursos. Para un entorno real, sustituye claves/cadenas de conexión por identidad administrada y Azure Key Vault donde sea compatible, activa HTTPS y establece una política de retención para facturas.
+6. Despliega desde GitHub Actions (ver abajo) o configura el repositorio en **Deployment Center**. Comprueba los logs de App Service y realiza una prueba controlada con datos no sensibles.
+7. Valida autenticación, permisos por rol, citas RAG, campos/confianza de factura, almacenamiento, límites de carga, errores y recuperación antes de habilitar a usuarios.
 
 Para Blob Storage, la aplicación crea el contenedor indicado si aún no existe. Asegúrate de que las credenciales tengan permiso de escritura. Para Azure AI Search y Document Intelligence, las claves/endpoints deben corresponder al mismo servicio y región correctos.
 

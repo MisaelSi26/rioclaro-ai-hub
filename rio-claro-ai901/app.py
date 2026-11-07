@@ -1,5 +1,8 @@
 """Flask web application for Río Claro's AI-901 integrator project."""
 
+import base64
+import binascii
+import json
 import logging
 import mimetypes
 import os
@@ -41,6 +44,42 @@ def _valid_invoice_file(filename, file_bytes, allowed_extensions):
 
 def _clean_question(value):
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", value).strip()
+
+
+def _chatbot_access_error(app):
+    if os.getenv("WEBSITE_AUTH_ENABLED", "").lower() != "true":
+        return "El acceso autenticado del asistente no está configurado.", 503
+
+    principal_header = request.headers.get("X-MS-CLIENT-PRINCIPAL", "")
+    if not principal_header:
+        return "Se requiere iniciar sesión para usar el asistente.", 401
+    try:
+        principal = json.loads(base64.b64decode(principal_header, validate=True))
+    except (binascii.Error, ValueError, UnicodeDecodeError):
+        return "La identidad autenticada no es válida.", 401
+
+    allowed_roles = {
+        role.strip().casefold()
+        for role in app.config.get("CHATBOT_ALLOWED_ROLES", [])
+        if role.strip()
+    }
+    if not allowed_roles:
+        return "No hay roles autorizados para el asistente.", 503
+
+    claims = principal.get("claims", []) if isinstance(principal, dict) else []
+    user_roles = {
+        str(claim.get("val", "")).casefold()
+        for claim in claims
+        if isinstance(claim, dict)
+        and str(claim.get("typ", "")).casefold() in {
+            "role",
+            "roles",
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+        }
+    }
+    if not user_roles.intersection(allowed_roles):
+        return "Tu cuenta no tiene permiso para usar el asistente.", 403
+    return None
 
 
 def create_app(test_config=None):
@@ -158,6 +197,10 @@ def create_app(test_config=None):
 
     @app.route("/chatbot", methods=["GET", "POST"])
     def chatbot():
+        access_error = _chatbot_access_error(app)
+        if access_error:
+            message, status = access_error
+            return message, status
         if request.method == "GET":
             return render_template("chatbot.html")
 

@@ -7,9 +7,18 @@ process.env.DEV_AUTH_ENABLED = 'true';
 process.env.SESSION_KEYS = 'test-session-key-long-enough-for-cookie-signing';
 process.env.SQL_CONNECTION_STRING = '';
 
-const { app } = await import('./index.js');
+const { app, sanitizeReturnTo } = await import('./index.js');
 let server;
 let baseUrl;
+
+test('OAuth return paths are restricted to known application routes', () => {
+  assert.equal(sanitizeReturnTo('/facturas'), '/facturas');
+  assert.equal(sanitizeReturnTo('/dashboard'), '/dashboard');
+  assert.equal(sanitizeReturnTo('//attacker.example'), '/dashboard');
+  assert.equal(sanitizeReturnTo('/%5Cattacker.example'), '/dashboard');
+  assert.equal(sanitizeReturnTo('/\\attacker.example'), '/dashboard');
+  assert.equal(sanitizeReturnTo('https://attacker.example'), '/dashboard');
+});
 
 before(async () => {
   server = app.listen(0, '127.0.0.1');
