@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 function LoginPage({ onLogin }) {
   const [config, setConfig] = useState({ entraConfigured: false, devLoginEnabled: false });
@@ -47,10 +47,6 @@ function LoginPage({ onLogin }) {
   return (
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-title">
-        <Link className="login-home-link" to="/">
-          <ArrowLeft size={17} />
-          Volver a la página principal
-        </Link>
         <div className="brand-mark">RC</div>
         <span className="eyebrow">Acceso seguro</span>
         <h1 id="login-title">Bienvenido a RioClaro AI Hub</h1>
@@ -67,7 +63,7 @@ function LoginPage({ onLogin }) {
         )}
         {!loading && config.devLoginEnabled && (
           <button className="secondary-button login-button" type="button" onClick={handleDemoLogin}>
-            Entrar como usuario demo
+            Entrar como usuario de desarrollo
           </button>
         )}
         {!loading && !config.entraConfigured && !config.devLoginEnabled && (
