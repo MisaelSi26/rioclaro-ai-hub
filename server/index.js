@@ -19,6 +19,7 @@ const isDevAuthEnabled = !isProduction && process.env.DEV_AUTH_ENABLED === 'true
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(dirname, '..');
 const staticDir = path.join(rootDir, 'dist');
+const invoiceHumanReviewConfidenceThreshold = 50;
 const allowedRoles = ['Administrador', 'Dirección', 'Compras', 'Ventas', 'Bodega', 'Finanzas'];
 const roleAliases = new Map([
   ['administrator', 'Administrador'],
@@ -184,8 +185,16 @@ async function getInvoices({ page, pageSize, assignment }) {
               WHERE d.id <> f.id AND d.rfc = f.rfc AND d.proveedor_id = f.proveedor_id
                 AND d.fecha = f.fecha AND d.folio = f.folio AND d.total = f.total
             ) THEN N'Presunta duplicada'
-            WHEN f.estado COLLATE Latin1_General_CI_AI LIKE N'%revision%'
-              OR f.estado COLLATE Latin1_General_CI_AI LIKE N'%humana%'
+            WHEN f.estado COLLATE Latin1_General_CI_AI LIKE N'%validada%' THEN N'Validada'
+            WHEN f.confianza_ocr < ${invoiceHumanReviewConfidenceThreshold}
+              OR f.estado COLLATE Latin1_General_CI_AI LIKE N'%ilegible%'
+              OR f.estado COLLATE Latin1_General_CI_AI LIKE N'%borros%'
+              OR f.rfc IS NULL OR LTRIM(RTRIM(f.rfc)) = N''
+              OR COALESCE(p.nombre, f.proveedor_nombre) IS NULL
+              OR LTRIM(RTRIM(COALESCE(p.nombre, f.proveedor_nombre, N''))) = N''
+              OR f.fecha IS NULL OR LTRIM(RTRIM(f.fecha)) = N''
+              OR f.folio IS NULL OR LTRIM(RTRIM(f.folio)) = N''
+              OR f.total IS NULL
               THEN N'Requiere validación humana'
             ELSE N'Validada'
           END AS assignment
@@ -222,8 +231,32 @@ async function getInvoices({ page, pageSize, assignment }) {
 function getInvoiceAssignment(invoice) {
   const status = String(invoice.status || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
   if (invoice.duplicate || status.includes('duplicad')) return 'Presunta duplicada';
-  if (status.includes('revision') || status.includes('humana')) return 'Requiere validación humana';
+  if (status.includes('validada')) return 'Validada';
+  const missingRequiredField = ['rfc', 'supplier', 'date', 'folio', 'total']
+    .some((field) => invoice[field] == null || invoice[field] === '');
+  if (
+    Number(invoice.confidence) < invoiceHumanReviewConfidenceThreshold
+    || status.includes('ilegible')
+    || status.includes('borros')
+    || missingRequiredField
+  ) return 'Requiere validación humana';
   return 'Validada';
+}
+
+async function validateInvoice(id) {
+  const pool = await getSqlPool();
+  if (!pool) {
+    const invoice = demoData.invoices.find((item) => Number(item.id) === id);
+    if (!invoice) return null;
+    invoice.status = 'Validada';
+    return { id: invoice.id, status: invoice.status };
+  }
+  const result = await pool.request()
+    .input('id', sql.Int, id)
+    .query(`UPDATE facturas SET estado = N'Validada'
+      OUTPUT INSERTED.id, INSERTED.estado AS status
+      WHERE id = @id`);
+  return result.recordset[0] || null;
 }
 
 async function findInvoiceDocument(id) {
@@ -647,6 +680,24 @@ app.delete('/api/invoices/:id', requireRoles('Administrador', 'Compras', 'Finanz
   }
 });
 
+app.post('/api/invoices/:id/validate', requireRoles('Administrador', 'Compras', 'Finanzas'), async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!/^\d+$/.test(req.params.id) || !Number.isSafeInteger(id) || id < 1 || id > 2147483647) {
+    res.status(400).json({ error: 'El identificador de factura no es válido.' });
+    return;
+  }
+  try {
+    const invoice = await validateInvoice(id);
+    if (!invoice) {
+      res.status(404).json({ error: 'No se encontró la factura seleccionada.' });
+      return;
+    }
+    res.json({ invoice });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.delete('/api/invoices/latest', requireRoles('Administrador', 'Compras', 'Finanzas'), async (_req, res, next) => {
   try {
     const pool = await getSqlPool();
@@ -753,7 +804,7 @@ app.post('/api/invoices', requireRoles('Administrador', 'Compras', 'Finanzas'), 
       tax: getField('TotalTax'),
       total: getField('InvoiceTotal'),
       confidence: Number.isFinite(confidence) ? Number(confidence.toFixed(2)) : 0,
-      status: confidence < 90 ? 'Revisión Humana Requerida' : 'Pendiente',
+      status: confidence < invoiceHumanReviewConfidenceThreshold ? 'Revisión Humana Requerida' : 'Pendiente',
       documentName: blobName || null,
     };
     const requiredOcrFields = [invoice.rfc, invoice.supplier, invoice.date, invoice.folio, invoice.total];

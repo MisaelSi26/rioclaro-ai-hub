@@ -44,7 +44,7 @@ const demoQuickStarts = [
 
 const initialInvoices = [
   { id: 'F-20189', supplier: 'Distribuidora del Sur S.A.', rfc: 'RCO980102XYZ', total: 14476.8, confidence: 96, status: 'Validada', duplicate: false },
-  { id: 'F-21450', supplier: 'Higiene Industrial MX', rfc: 'PQR120315ABC', total: 9802, confidence: 88, status: 'Revisión humana requerida', duplicate: false },
+  { id: 'F-21450', supplier: 'Higiene Industrial MX', rfc: 'PQR120315ABC', total: 9802, confidence: 48, status: 'Revisión humana requerida', duplicate: false },
   { id: 'F-20189', supplier: 'Distribuidora del Sur S.A.', rfc: 'RCO980102XYZ', total: 14476.8, confidence: 97, status: 'Posible factura duplicada', duplicate: true },
 ];
 
@@ -124,7 +124,7 @@ function DemoHub() {
       supplier: 'Higiene Industrial MX',
       rfc: 'PQR120315ABC',
       total: 9802,
-      confidence: invoices.length % 2 ? 88 : 96,
+      confidence: invoices.length % 2 ? 48 : 96,
       status: invoices.length % 2 ? 'Revisión humana requerida' : 'Validada',
       duplicate: false,
     };
@@ -275,7 +275,7 @@ function DemoHub() {
                 </form>
                 <div className="table-card demo-table">
                   <table><thead><tr><th>Folio</th><th>Proveedor</th><th>Total</th><th>Confianza</th><th>Estado</th></tr></thead>
-                    <tbody>{invoices.map((invoice, index) => <tr key={`${invoice.id}-${index}`}><td>{invoice.id}</td><td>{invoice.supplier}</td><td>${invoice.total.toLocaleString('es-MX')}</td><td>{invoice.confidence}%</td><td><span className={`status ${invoice.duplicate ? 'abierto' : invoice.confidence < 90 ? 'en-proceso' : 'resuelto'}`}>{invoice.status}</span></td></tr>)}</tbody>
+                    <tbody>{invoices.map((invoice, index) => <tr key={`${invoice.id}-${index}`}><td>{invoice.id}</td><td>{invoice.supplier}</td><td>${invoice.total.toLocaleString('es-MX')}</td><td>{invoice.confidence}%</td><td><span className={`status ${invoice.duplicate ? 'abierto' : invoice.confidence < 50 ? 'en-proceso' : 'resuelto'}`}>{invoice.status}</span></td></tr>)}</tbody>
                   </table>
                 </div>
                 {invoices.some((invoice) => invoice.duplicate) && <div className="duplicate-alert"><CheckCircle2 size={18} /> Escenario incluido: una factura duplicada bloquea la aprobación automática.</div>}
