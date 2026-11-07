@@ -31,6 +31,11 @@ class Config:
 
     STORAGE_CONNECTION_STRING = os.getenv("STORAGE_CONNECTION_STRING", "").strip()
     STORAGE_CONTAINER = os.getenv("STORAGE_CONTAINER", "rio-claro-invoices").strip()
+    CHATBOT_ALLOWED_ROLES = {
+        role.strip().casefold()
+        for role in os.getenv("CHATBOT_ALLOWED_ROLES", "").split(",")
+        if role.strip()
+    }
     AZURE_OPENAI_API_VERSION = os.getenv(
         "AZURE_OPENAI_API_VERSION", "2024-06-01"
     ).strip()

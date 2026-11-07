@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 
@@ -5,6 +6,15 @@ import pytest
 
 from app import create_app
 from services.chatbot_service import ChatbotService, NO_INFORMATION
+
+
+def _chatbot_headers(*roles):
+    principal = {
+        "auth_typ": "aad",
+        "claims": [{"typ": "roles", "val": role} for role in roles],
+    }
+    encoded = base64.b64encode(json.dumps(principal).encode("utf-8")).decode("ascii")
+    return {"X-MS-CLIENT-PRINCIPAL": encoded}
 
 
 class FakeDocumentAI:
@@ -36,6 +46,7 @@ def client(tmp_path):
             "WTF_CSRF_ENABLED": False,
             "UPLOAD_FOLDER": tmp_path,
             "MAX_CONTENT_LENGTH": 1024 * 1024,
+            "CHATBOT_ALLOWED_ROLES": {"chatbot.reader"},
         }
     )
     app.extensions["document_ai"] = FakeDocumentAI()
@@ -77,11 +88,26 @@ def test_invoice_extracts_and_persists_result(client):
     assert saved_result["fields"][0]["value"] == "INV-100"
 
 
-def test_chatbot_renders_answer_and_source(client):
+def test_chatbot_requires_authenticated_authorized_user(client, monkeypatch):
     test_client, _ = client
+    response = test_client.get("/chatbot")
+    assert response.status_code == 503
+
+    monkeypatch.setenv("WEBSITE_AUTH_ENABLED", "true")
+    response = test_client.get("/chatbot")
+    assert response.status_code == 401
+
+    response = test_client.get("/chatbot", headers=_chatbot_headers("Public.User"))
+    assert response.status_code == 403
+
+
+def test_chatbot_renders_answer_and_source(client, monkeypatch):
+    test_client, _ = client
+    monkeypatch.setenv("WEBSITE_AUTH_ENABLED", "true")
     response = test_client.post(
         "/chatbot",
         data={"question": "¿Cuál es la política?"},
+        headers=_chatbot_headers("Chatbot.Reader"),
     )
     page = response.get_data(as_text=True)
     assert response.status_code == 200
@@ -89,9 +115,14 @@ def test_chatbot_renders_answer_and_source(client):
     assert "politica.pdf" in page
 
 
-def test_chatbot_rejects_blank_question(client):
+def test_chatbot_rejects_blank_question(client, monkeypatch):
     test_client, _ = client
-    response = test_client.post("/chatbot", data={"question": "   "})
+    monkeypatch.setenv("WEBSITE_AUTH_ENABLED", "true")
+    response = test_client.post(
+        "/chatbot",
+        data={"question": "   "},
+        headers=_chatbot_headers("Chatbot.Reader"),
+    )
     assert response.status_code == 400
 
 

@@ -21,6 +21,7 @@ const rootDir = path.resolve(dirname, '..');
 const staticDir = path.join(rootDir, 'dist');
 const invoiceHumanReviewConfidenceThreshold = 50;
 const allowedRoles = ['Administrador', 'Dirección', 'Compras', 'Ventas', 'Bodega', 'Finanzas'];
+const allowedReturnPaths = new Set(['/facturas', '/inventario', '/chat', '/voz', '/clientes', '/dashboard']);
 const roleAliases = new Map([
   ['administrator', 'Administrador'],
   ['director', 'Dirección'],
@@ -154,6 +155,10 @@ function createUser(claims, fallbackRole) {
     email: claims?.preferred_username || claims?.email || '',
     roles: roles.length ? roles : fallbackRole ? [fallbackRole] : [],
   };
+}
+
+function sanitizeReturnTo(returnTo) {
+  return typeof returnTo === 'string' && allowedReturnPaths.has(returnTo) ? returnTo : '/dashboard';
 }
 
 async function getInvoices({ page, pageSize, assignment }) {
@@ -506,9 +511,7 @@ app.get('/auth/login', authLimiter, async (req, res, next) => {
   }
   try {
     const state = crypto.randomBytes(24).toString('hex');
-    const returnTo = typeof req.query.returnTo === 'string' && req.query.returnTo.startsWith('/') && !req.query.returnTo.startsWith('//')
-      ? req.query.returnTo
-      : '/dashboard';
+    const returnTo = sanitizeReturnTo(req.query.returnTo);
     req.session.oauthState = state;
     req.session.returnTo = returnTo;
     const url = await msalClient.getAuthCodeUrl({
@@ -1041,4 +1044,4 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-export { app };
+export { app, sanitizeReturnTo };
