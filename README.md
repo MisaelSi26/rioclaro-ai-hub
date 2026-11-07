@@ -1,6 +1,6 @@
 # RioClaro AI Hub
 
-Aplicación web para la operación de Distribuidora Río Claro. Incluye landing pública, módulos con rutas protegidas, API Node/Express, autenticación Microsoft Entra ID, RBAC y conexiones opcionales/obligatorias a servicios de Azure según el módulo.
+Aplicación web administrativa para la operación de Distribuidora Río Claro. Incluye módulos con rutas protegidas, API Node/Express, autenticación Microsoft Entra ID, RBAC y conexiones opcionales/obligatorias a servicios de Azure según el módulo.
 
 > El código queda preparado para desplegarse, pero publicar en una suscripción real requiere crear los recursos Azure, registrar la aplicación Entra y configurar secretos propios. No se incluyen credenciales.
 
@@ -9,7 +9,7 @@ Aplicación web para la operación de Distribuidora Río Claro. Incluye landing 
 - **Web:** React 19, Vite, React Router, Framer Motion y Recharts.
 - **API:** Node.js 20 + Express 5, servido desde el mismo origen que la web.
 - **Autenticación:** OAuth 2.0 Authorization Code con Microsoft Entra ID y cookie firmada, HTTP-only, Secure en producción y SameSite=Lax.
-- **Datos:** Azure SQL Database; datos de demostración en memoria solo en desarrollo.
+- **Datos:** Azure SQL Database; datos de prueba en memoria únicamente en desarrollo.
 - **Documentos:** Azure AI Document Intelligence (modelo `prebuilt-invoice`) y Azure Blob Storage.
 - **Asistente:** Azure AI Search + Azure OpenAI, respuestas limitadas al contexto recuperado y fuentes devueltas.
 - **Despliegue:** Docker o Azure App Service Linux con Node 24.
@@ -35,7 +35,7 @@ Browser ── same-origin ──> Express ──> Entra ID
 | `/clientes` | Seguimiento de clientes | Administrador, Dirección, Ventas |
 | `/dashboard` | Indicadores ejecutivos | Administrador, Dirección, Finanzas |
 
-El backend verifica los roles en cada API; ocultar o abrir una ruta en el navegador no concede acceso. La interfaz de demostración pública fue retirada; conserva el inicio de sesión empresarial y los módulos operativos protegidos.
+El backend verifica los roles en cada API; ocultar o abrir una ruta en el navegador no concede acceso. Los módulos operativos requieren inicio de sesión empresarial.
 
 ## API
 
@@ -101,7 +101,7 @@ Usa `.env.example` como plantilla. Las claves y cadenas de conexión se leen **s
 
 En App Service guarda secretos en Key Vault y vincúlalos como app settings. No subas `.env` al repositorio.
 
-## Base de datos y datos demo
+## Base de datos y datos de prueba
 
 Ejecuta una sola vez en una base vacía, en este orden:
 
@@ -128,7 +128,7 @@ Consulta [docs/azure-deployment.md](./docs/azure-deployment.md) para crear App S
 docker compose up --build
 ```
 
-La aplicación escucha en `PORT` (8080 por defecto). App Service debe configurar `NODE_ENV=production`, `DEV_AUTH_ENABLED=false`, `SESSION_KEYS` y todos los settings de los servicios usados. En producción, SQL no configurado devuelve servicio degradado; no se usa el fallback demo.
+La aplicación escucha en `PORT` (8080 por defecto). App Service debe configurar `NODE_ENV=production`, `DEV_AUTH_ENABLED=false`, `SESSION_KEYS` y todos los settings de los servicios usados. En producción, SQL no configurado devuelve servicio degradado; no se usan datos ficticios de respaldo.
 
 ### GitHub Actions
 
