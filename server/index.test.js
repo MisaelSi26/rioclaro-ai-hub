@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { demoData } from './data.js';
 
 process.env.NODE_ENV = 'test';
 process.env.DEV_AUTH_ENABLED = 'true';
@@ -33,6 +34,8 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
   assert.equal(anonymousSelectedInvoiceDelete.status, 401);
   const anonymousInvoiceDocument = await fetch(`${baseUrl}/api/invoices/1/document`);
   assert.equal(anonymousInvoiceDocument.status, 401);
+  const anonymousInvoiceValidation = await fetch(`${baseUrl}/api/invoices/3/validate`, { method: 'POST' });
+  assert.equal(anonymousInvoiceValidation.status, 401);
 
   const anonymousChatResponse = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
@@ -59,6 +62,52 @@ test('requires a session, serves role-protected data, and creates a ticket', asy
   assert.equal(invoicePage.pageSize, 10);
   assert.equal(invoicePage.total, 4);
   assert.equal(invoicePage.totalPages, 1);
+
+  const humanReviewPage = await (await fetch(
+    `${baseUrl}/api/invoices?assignment=${encodeURIComponent('Requiere validación humana')}`,
+    { headers: { Cookie: cookie } },
+  )).json();
+  assert.equal(humanReviewPage.total, 0);
+
+  const demoInvoiceForReview = demoData.invoices.find((invoice) => invoice.id === 3);
+  demoInvoiceForReview.confidence = 50;
+  const thresholdInvoicePage = await (await fetch(
+    `${baseUrl}/api/invoices?assignment=${encodeURIComponent('Requiere validación humana')}`,
+    { headers: { Cookie: cookie } },
+  )).json();
+  assert.equal(thresholdInvoicePage.total, 0);
+
+  demoInvoiceForReview.confidence = 35;
+  demoInvoiceForReview.status = 'Revisión Humana Requerida';
+  const unreadableInvoicePage = await (await fetch(
+    `${baseUrl}/api/invoices?assignment=${encodeURIComponent('Requiere validación humana')}`,
+    { headers: { Cookie: cookie } },
+  )).json();
+  assert.equal(unreadableInvoicePage.total, 1);
+  assert.equal(unreadableInvoicePage.items[0].id, 3);
+
+  const validateInvoice = await fetch(`${baseUrl}/api/invoices/3/validate`, {
+    method: 'POST',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(validateInvoice.status, 200);
+  assert.equal((await validateInvoice.json()).invoice.status, 'Validada');
+  const humanReviewAfterValidation = await (await fetch(
+    `${baseUrl}/api/invoices?assignment=${encodeURIComponent('Requiere validación humana')}`,
+    { headers: { Cookie: cookie } },
+  )).json();
+  assert.equal(humanReviewAfterValidation.total, 0);
+
+  const missingInvoiceValidation = await fetch(`${baseUrl}/api/invoices/999/validate`, {
+    method: 'POST',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(missingInvoiceValidation.status, 404);
+  const invalidInvoiceValidation = await fetch(`${baseUrl}/api/invoices/not-an-id/validate`, {
+    method: 'POST',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(invalidInvoiceValidation.status, 400);
 
   const duplicatedInvoicePageResponse = await fetch(
     `${baseUrl}/api/invoices?page=1&assignment=${encodeURIComponent('Presunta duplicada')}`,

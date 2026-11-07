@@ -9,7 +9,7 @@ export const demoData = {
   invoices: [
     { id: 1, rfc: 'RCO980102XYZ', supplier: 'Distribuidora del Sur S.A.', date: '2026-09-12', folio: 'F-20189', subtotal: 12480, tax: 1996.8, total: 14476.8, confidence: 94.2, status: 'Validada', duplicate: false },
     { id: 2, rfc: 'PQR120315ABC', supplier: 'Higiene Industrial MX', date: '2026-09-18', folio: 'F-21450', subtotal: 8450, tax: 1352, total: 9802, confidence: 96.1, status: 'Validada', duplicate: false },
-    { id: 3, rfc: 'MKT101120DEF', supplier: 'Hotelaria Plus', date: '2026-09-20', folio: 'F-21990', subtotal: 6560, tax: 1049.6, total: 7609.6, confidence: 88.5, status: 'Revisión Humana Requerida', duplicate: false },
+    { id: 3, rfc: 'MKT101120DEF', supplier: 'Hotelaria Plus', date: '2026-09-20', folio: 'F-21990', subtotal: 6560, tax: 1049.6, total: 7609.6, confidence: 88.5, status: 'Validada', duplicate: false },
     { id: 4, rfc: 'RCO980102XYZ', supplier: 'Distribuidora del Sur S.A.', date: '2026-09-12', folio: 'F-20189', subtotal: 12480, tax: 1996.8, total: 14476.8, confidence: 97.4, status: 'Posible Factura Duplicada', duplicate: true },
   ],
   inventory: [

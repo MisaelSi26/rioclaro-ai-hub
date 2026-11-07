@@ -37,6 +37,8 @@ import LoginPage from './components/LoginPage.jsx';
 import DemoHub from './components/DemoHub.jsx';
 import VoiceModule from './components/VoiceModule.jsx';
 
+const invoiceHumanReviewConfidenceThreshold = 50;
+
 const productCards = [
   { title: 'Cloro industrial', image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80', subtitle: 'Desinfectantes y sanitizantes' },
   { title: 'Detergentes líquidos', image: 'https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?auto=format&fit=crop&w=1200&q=80', subtitle: 'Limpieza profesional' },
@@ -132,7 +134,15 @@ const moduleRoleAccess = {
 function getInvoiceAssignment(invoice) {
   const status = String(invoice.status || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
   if (invoice.duplicate || status.includes('duplicad')) return 'Presunta duplicada';
-  if (status.includes('revision') || status.includes('humana')) return 'Requiere validación humana';
+  if (status.includes('validada')) return 'Validada';
+  const missingRequiredField = ['rfc', 'supplier', 'date', 'folio', 'total']
+    .some((field) => invoice[field] == null || invoice[field] === '');
+  if (
+    Number(invoice.confidence) < invoiceHumanReviewConfidenceThreshold
+    || status.includes('ilegible')
+    || status.includes('borros')
+    || missingRequiredField
+  ) return 'Requiere validación humana';
   return 'Validada';
 }
 
@@ -144,6 +154,7 @@ function HubApp({ user, onLogout }) {
   const [invoiceFile, setInvoiceFile] = useState(null);
   const [invoiceStatus, setInvoiceStatus] = useState('');
   const [invoiceDeleting, setInvoiceDeleting] = useState(false);
+  const [invoiceValidating, setInvoiceValidating] = useState(false);
   const [invoiceFilter, setInvoiceFilter] = useState('Todas');
   const [invoicePage, setInvoicePage] = useState(1);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
@@ -259,11 +270,11 @@ function HubApp({ user, onLogout }) {
   useEffect(() => {
     if (!selectedInvoice) return undefined;
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape' && !invoiceDeleting) setSelectedInvoice(null);
+      if (event.key === 'Escape' && !invoiceDeleting && !invoiceValidating) setSelectedInvoice(null);
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [selectedInvoice, invoiceDeleting]);
+  }, [selectedInvoice, invoiceDeleting, invoiceValidating]);
 
   async function uploadInvoice(event) {
     event.preventDefault();
@@ -304,6 +315,27 @@ function HubApp({ user, onLogout }) {
       setInvoiceStatus(error.message);
     } finally {
       setInvoiceDeleting(false);
+    }
+  }
+
+  async function validateSelectedInvoice() {
+    if (!selectedInvoice || invoiceValidating || getInvoiceAssignment(selectedInvoice) !== 'Requiere validación humana') return;
+    const confirmed = window.confirm(`¿Confirmas que revisaste y validaste la factura ${selectedInvoice.folio || selectedInvoice.id}?`);
+    if (!confirmed) return;
+
+    setInvoiceValidating(true);
+    setInvoiceStatus('Validando factura...');
+    try {
+      const response = await fetch(`/api/invoices/${selectedInvoice.id}/validate`, { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'No se pudo validar la factura.');
+      setSelectedInvoice((invoice) => invoice ? { ...invoice, status: result.invoice.status } : invoice);
+      setInvoiceStatus('Factura validada.');
+      setInvoiceRefresh((previous) => previous + 1);
+    } catch (error) {
+      setInvoiceStatus(error.message);
+    } finally {
+      setInvoiceValidating(false);
     }
   }
 
@@ -698,7 +730,7 @@ function HubApp({ user, onLogout }) {
                         <div className="progress-bar" style={{ width: `${currentInvoice?.confidence || 0}%` }} />
                       </div>
                       <strong>{currentInvoice ? `${currentInvoice.confidence}%` : '—'}</strong>
-                      <small>{currentInvoice?.status || 'Carga una factura para iniciar el análisis.'}</small>
+                      <small>{currentInvoice ? getInvoiceAssignment(currentInvoice) : 'Carga una factura para iniciar el análisis.'}</small>
                     </div>
                   </div>
 
@@ -785,7 +817,7 @@ function HubApp({ user, onLogout }) {
                     <span>Posible Factura Duplicada · no se permite aprobación automática.</span>
                   </div>}
                   {selectedInvoice && <div className="invoice-modal-backdrop" onMouseDown={(event) => {
-                    if (event.target === event.currentTarget && !invoiceDeleting) setSelectedInvoice(null);
+                    if (event.target === event.currentTarget && !invoiceDeleting && !invoiceValidating) setSelectedInvoice(null);
                   }}>
                     <section className="invoice-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title">
                       <header>
@@ -793,7 +825,7 @@ function HubApp({ user, onLogout }) {
                           <span className="eyebrow dark">Detalle de factura</span>
                           <h3 id="invoice-modal-title">{selectedInvoice.folio || `Factura ${selectedInvoice.id}`}</h3>
                         </div>
-                        <button className="ghost-button invoice-modal-close" type="button" onClick={() => setSelectedInvoice(null)} disabled={invoiceDeleting} aria-label="Cerrar detalle">
+                        <button className="ghost-button invoice-modal-close" type="button" onClick={() => setSelectedInvoice(null)} disabled={invoiceDeleting || invoiceValidating} aria-label="Cerrar detalle">
                           <X size={20} />
                         </button>
                       </header>
@@ -824,11 +856,15 @@ function HubApp({ user, onLogout }) {
                         </div>
                       </div>
                       <footer>
+                        {getInvoiceAssignment(selectedInvoice) === 'Requiere validación humana' && <button className="primary-button small-button" type="button" onClick={validateSelectedInvoice} disabled={invoiceDeleting || invoiceValidating}>
+                          <CheckCircle2 size={16} />
+                          {invoiceValidating ? 'Validando...' : 'Validar factura'}
+                        </button>}
                         <button className="secondary-button small-button invoice-delete-button" type="button" onClick={deleteSelectedInvoice} disabled={invoiceDeleting}>
                           <Trash2 size={16} />
                           {invoiceDeleting ? 'Eliminando...' : 'Eliminar factura'}
                         </button>
-                        <button className="ghost-button small-button" type="button" onClick={() => setSelectedInvoice(null)} disabled={invoiceDeleting}>Cerrar</button>
+                        <button className="ghost-button small-button" type="button" onClick={() => setSelectedInvoice(null)} disabled={invoiceDeleting || invoiceValidating}>Cerrar</button>
                       </footer>
                     </section>
                   </div>}
