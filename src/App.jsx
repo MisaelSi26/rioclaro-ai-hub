@@ -34,7 +34,6 @@ import {
   YAxis,
 } from 'recharts';
 import LoginPage from './components/LoginPage.jsx';
-import DemoHub from './components/DemoHub.jsx';
 import VoiceModule from './components/VoiceModule.jsx';
 
 const invoiceHumanReviewConfidenceThreshold = 50;
@@ -423,7 +422,6 @@ function HubApp({ user, onLogout }) {
               <a href="#productos">Productos</a>
               <a href="#beneficios">Beneficios</a>
               <a href="#documentacion">IA Responsable</a>
-              <Link to="/demo">Modo demo</Link>
             </>
           ) : (
             <span className="user-greeting">{user.name} · {user.roles.join(', ') || 'Sin rol asignado'}</span>
@@ -436,7 +434,6 @@ function HubApp({ user, onLogout }) {
           </button>
           {isLanding ? (
             <>
-              <Link to="/demo" className="secondary-button inline-button">Probar demo</Link>
               <Link to="/login" className="primary-button inline-button">Ingresar al Sistema</Link>
             </>
           ) : (
@@ -459,9 +456,6 @@ function HubApp({ user, onLogout }) {
               Automatización de facturas, inventarios inteligentes y atención inmediata para clientes y colaboradores.
             </p>
             <div className="hero-actions">
-              <Link to="/demo" className="primary-button">
-                Explorar demo interactiva
-              </Link>
               <Link to="/login" className="secondary-button">
                 Ingresar al sistema
               </Link>
@@ -1081,7 +1075,6 @@ function HubApp({ user, onLogout }) {
           <div className="footer-links">
             <div>
               <h4>Soluciones</h4>
-              <Link to="/demo">Explorar modo demo</Link>
               <Link to="/facturas">Facturas</Link>
               <Link to="/inventario">Inventario</Link>
               <Link to="/clientes">Atención a clientes</Link>
@@ -1109,13 +1102,9 @@ function AppRouter() {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const location = useLocation();
-  const isPublicRoute = location.pathname === '/' || location.pathname === '/login' || location.pathname.startsWith('/demo');
+  const isPublicRoute = location.pathname === '/login';
 
   useEffect(() => {
-    if (location.pathname.startsWith('/demo')) {
-      setAuthReady(true);
-      return undefined;
-    }
     let active = true;
     fetch('/api/auth/me')
       .then((response) => response.json())
@@ -1156,9 +1145,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={loginElement} />
-      <Route path="/demo" element={<DemoHub />} />
-      <Route path="/demo/:module" element={<DemoHub />} />
-      <Route path="/" element={<HubApp user={user || { name: 'Visitante', roles: [] }} onLogout={logout} />} />
+      <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
       <Route path="/facturas" element={user ? protectedElement : <Navigate to="/login" state={{ returnTo: location.pathname }} replace />} />
       <Route path="/inventario" element={user ? protectedElement : <Navigate to="/login" state={{ returnTo: location.pathname }} replace />} />
       <Route path="/chat" element={user ? protectedElement : <Navigate to="/login" state={{ returnTo: location.pathname }} replace />} />

@@ -26,14 +26,8 @@ Browser ── same-origin ──> Express ──> Entra ID
 
 | Ruta | Módulo | Acceso |
 |---|---|---|
-| `/` | Landing pública | Público |
+| `/` | Redirección a inicio de sesión o dashboard | Usuarios autenticados |
 | `/login` | Inicio de sesión | Público |
-| `/demo` | Dashboard del recorrido interactivo | Público, datos ficticios |
-| `/demo/facturas` | Simulación de OCR y detección de duplicados | Público, datos ficticios |
-| `/demo/inventario` | Búsqueda homologada por producto y sucursal | Público, datos ficticios |
-| `/demo/chat` | Asistente con respuestas y fuentes de ejemplo | Público, datos ficticios |
-| `/demo/voz` | Interacción de voz simulada | Público, datos ficticios |
-| `/demo/clientes` | CRM con tickets locales a la sesión | Público, datos ficticios |
 | `/facturas` | Captura OCR y revisión de duplicados | Administrador, Compras, Finanzas |
 | `/inventario` | Catálogo e inventario por sucursal | Administrador, Dirección, Compras, Bodega |
 | `/chat` | Asistente con búsqueda documental | Administrador, Dirección, Compras, Ventas, Bodega |
@@ -41,11 +35,7 @@ Browser ── same-origin ──> Express ──> Entra ID
 | `/clientes` | Seguimiento de clientes | Administrador, Dirección, Ventas |
 | `/dashboard` | Indicadores ejecutivos | Administrador, Dirección, Finanzas |
 
-El backend verifica los roles en cada API; ocultar o abrir una ruta en el navegador no concede acceso.
-
-### Modo demostración
-
-Abre `/demo` desde la landing o directamente para recorrer todos los módulos sin iniciar sesión. El dashboard, OCR, inventario, asistente, voz y CRM usan datos ficticios y estado local del navegador: no llaman a las APIs de negocio, no escriben en SQL ni suben documentos. En OCR, el archivo seleccionado se usa solo para ilustrar el flujo y no se transmite ni conserva. La lectura en voz alta, si el navegador la soporta, usa la síntesis local; no es una conexión con Azure Speech. La demo no debe usarse como fuente de datos operativos.
+El backend verifica los roles en cada API; ocultar o abrir una ruta en el navegador no concede acceso. La interfaz de demostración pública fue retirada; conserva el inicio de sesión empresarial y los módulos operativos protegidos.
 
 ## API
 
@@ -84,7 +74,7 @@ Requisitos: Node.js 24 o superior.
    npm run dev
    ```
 
-5. Abre `http://localhost:5173` y usa **Entrar como usuario demo**. El login demo solo está habilitado fuera de producción.
+5. Abre `http://localhost:5173` y usa **Entrar como usuario de desarrollo**. Este acceso solo está habilitado fuera de producción.
 
 También se puede crear el build de producción y servir web/API en un único proceso:
 
