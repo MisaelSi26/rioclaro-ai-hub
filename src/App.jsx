@@ -152,6 +152,7 @@ function HubApp({ user, onLogout }) {
   const [apiLoading, setApiLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [invoiceFile, setInvoiceFile] = useState(null);
+  const [invoiceProcessing, setInvoiceProcessing] = useState(false);
   const [invoiceStatus, setInvoiceStatus] = useState('');
   const [invoiceDeleting, setInvoiceDeleting] = useState(false);
   const [invoiceValidating, setInvoiceValidating] = useState(false);
@@ -278,7 +279,8 @@ function HubApp({ user, onLogout }) {
 
   async function uploadInvoice(event) {
     event.preventDefault();
-    if (!invoiceFile) return;
+    if (!invoiceFile || invoiceProcessing) return;
+    setInvoiceProcessing(true);
     setInvoiceStatus('Procesando con Azure AI Document Intelligence...');
     const formData = new FormData();
     formData.append('file', invoiceFile);
@@ -294,6 +296,8 @@ function HubApp({ user, onLogout }) {
       event.target.reset();
     } catch (error) {
       setInvoiceStatus(error.message);
+    } finally {
+      setInvoiceProcessing(false);
     }
   }
 
@@ -714,9 +718,16 @@ function HubApp({ user, onLogout }) {
                         accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
                         onChange={(event) => chooseInvoice(event.target.files?.[0])}
                         aria-label="Selecciona una factura"
+                        disabled={invoiceProcessing}
                       />
                       {invoiceFile && <span>{invoiceFile.name}</span>}
-                      <button className="primary-button small-button" type="submit" disabled={!invoiceFile}>Procesar factura</button>
+                      {invoiceProcessing && <div className="invoice-processing" role="status" aria-live="polite">
+                        <span className="invoice-processing-spinner" aria-hidden="true" />
+                        <span>Procesando factura con Azure AI. Puede tardar unos segundos; no cierres esta página.</span>
+                      </div>}
+                      <button className="primary-button small-button" type="submit" disabled={!invoiceFile || invoiceProcessing}>
+                        {invoiceProcessing ? 'Procesando...' : 'Procesar factura'}
+                      </button>
                       <div className="upload-types">
                         <span>PDF</span>
                         <span>JPG</span>
